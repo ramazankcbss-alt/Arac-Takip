@@ -173,6 +173,7 @@ class CihazTalebi {
   String get cihaz => _s(j['cihaz']);
   String get talep => _s(j['talep']);
   String get ciftlik => _s(j['ciftlik']);
+  bool get kilitli => _s(j['durum']) == 'Kilitli';
 }
 
 /// Ana veri paketi (sunucudaki `veri` işleminin cevabı).

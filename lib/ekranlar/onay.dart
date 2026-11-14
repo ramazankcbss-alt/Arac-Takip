@@ -28,15 +28,25 @@ class _OnaySayfasiState extends State<OnaySayfasi> {
           children: [
             if (v.cihazBekleyen.isNotEmpty)
               Panel(
-                baslik: 'Cihaz onayı bekleyenler (${v.cihazBekleyen.length})',
+                baslik: 'Cihaz onayı ve PIN sıfırlama (${v.cihazBekleyen.length})',
                 child: Column(
                   children: [
                     for (final c in v.cihazBekleyen)
                       ListTile(
                         contentPadding: EdgeInsets.zero,
                         title: Text(c.ad),
-                        subtitle: Text('${c.telefon} · ${c.ciftlik} · ${c.talep}'),
-                        trailing: Row(
+                        subtitle: Text(c.kilitli
+                            ? '${c.telefon} · Hatalı PIN denemeleri nedeniyle kilitli'
+                            : '${c.telefon} · ${c.ciftlik} · ${c.talep}'),
+                        trailing: c.kilitli
+                            ? TextButton.icon(
+                                icon: const Icon(Icons.lock_reset),
+                                label: const Text('PIN Sıfırla'),
+                                onPressed: () => islem(context, 'cihazOnay',
+                                    {'telefon': c.telefon, 'onay': false, 'sifirla': true},
+                                    basari: 'PIN sıfırlandı. Personel yeni PIN ile giriş yaptıktan sonra cihazını onaylayın.'),
+                              )
+                            : Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             IconButton(

@@ -35,6 +35,10 @@ virgülle yazılabilir. Yönetici için Çiftlik = `Tümü`.
 4. Dağıt → Yeni dağıtım → Tür: **Web uygulaması**; Yürüten: **Ben**; Erişim: **Herkes**.
    Dağıtın ve **…/exec** ile biten web uygulaması adresini kopyalayın.
 5. Roller sayfasına kendinizi ekleyin: telefonunuz | adınız | `Yönetici` | `Tümü`.
+   Uygulamada ilk girişinizi yaptıktan sonra **Cihazlar** sayfasında kendi satırınızın
+   **Durum** hücresine `Onaylı` yazın. Hiçbir cihaz otomatik onaylanmaz; diğer personelin
+   cihazları uygulamadan formen veya Makine-Ekipman Sorumlusu tarafından onaylanır.
+   Arka arkaya 5 hatalı PIN girişinde hesap **Kilitli** olur; formen PIN sıfırlar.
 6. İsteğe bağlı: Arıza bildirimlerinin Google Chat'e de düşmesi için `chatWebhookAyarla`
    işlevine Chat alanının webhook adresini yazıp çalıştırın.
 

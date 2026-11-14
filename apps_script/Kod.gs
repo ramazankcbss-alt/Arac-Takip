@@ -12,6 +12,7 @@
 var RAPOR_TABLO_ID = '1GkKhf3j-VK8tomjeIqLDMKs-mlq7CYJOfQMyokMGh3Y';
 var FOTO_KLASOR_ID = '1lRtoFrA9NyhPF280G9uLnIEIeWU-1tOe'; // Drive "Araç Takip"
 var TZ = 'Europe/Istanbul';
+var PIN_DENEME_SINIRI = 5;
 
 var BASLIKLAR = {
   'Araçlar': ['Araç No', 'Tür', 'Marka / Model', 'Plaka / Şase No', 'Çiftlik', 'Motor Saati',
@@ -233,7 +234,11 @@ function giris_(g) {
   var satir = -1, kayit = null;
   t.rows.forEach(function (row, i) { if (tel_(row[0]) === telefon) { satir = i + 2; kayit = row; } });
   var oturum = Utilities.getUuid();
-  var otomatik = r.roller.indexOf(ROL_YONETICI) >= 0;
+  // Hiçbir cihaz otomatik onaylanmaz. Yöneticinin cihazı, tablo sahibince
+  // Cihazlar sayfasında Durum = Onaylı yazılarak onaylanır.
+  var otomatik = false;
+  var pr = PropertiesService.getScriptProperties();
+  var hataAnahtari = 'pinHata_' + telefon;
   if (!kayit) {
     var durum = otomatik ? 'Onaylı' : 'Bekliyor';
     ekle_('Cihazlar', [telefon, ad, cihaz, bas_(g.cihazAdi), oturum, pinOz, durum,
@@ -241,7 +246,20 @@ function giris_(g) {
     if (!otomatik) cihazBildir_(telefon, ad, r.ciftlik);
     return { ok: true, oturum: oturum, durum: durum, kisi: { ad: ad, telefon: telefon, ciftlik: r.ciftlik, roller: r.roller } };
   }
-  if (kayit[5] && kayit[5] !== pinOz) return { ok: false, hata: 'PIN hatalı. Unuttuysanız formeninize başvurun.' };
+  if (kayit[6] === 'Kilitli') {
+    return { ok: false, hata: 'Hesap, hatalı PIN denemeleri nedeniyle kilitlendi. PIN sıfırlama için formeninize başvurun.' };
+  }
+  if (kayit[5] && kayit[5] !== pinOz) {
+    var sayi = Number(pr.getProperty(hataAnahtari) || 0) + 1;
+    pr.setProperty(hataAnahtari, String(sayi));
+    if (sayi >= PIN_DENEME_SINIRI) {
+      hucre_('Cihazlar', satir, 'Durum', 'Kilitli');
+      hucre_('Cihazlar', satir, 'Oturum Anahtarı', '');
+      return { ok: false, hata: 'Hatalı PIN sınırı aşıldı; hesap kilitlendi. PIN sıfırlama için formeninize başvurun.' };
+    }
+    return { ok: false, hata: 'PIN hatalı. Kalan deneme hakkı: ' + (PIN_DENEME_SINIRI - sayi) + '.' };
+  }
+  pr.deleteProperty(hataAnahtari);
   var ayniCihaz = bas_(kayit[2]) === cihaz;
   var yeniDurum = (ayniCihaz && kayit[6] === 'Onaylı') || otomatik ? 'Onaylı' : 'Bekliyor';
   hucre_('Cihazlar', satir, 'Cihaz Kimliği', cihaz);
@@ -387,7 +405,7 @@ function veri_(k) {
     o.cihazBekleyen = tablo_('Cihazlar').rows.map(function (r, i) {
       var t = tel_(r[0]); var p = personeller_()[t];
       return { telefon: t, ad: r[1], cihaz: r[3], durum: r[6], talep: r[8], ciftlik: roller_(t, p).ciftlik };
-    }).filter(function (c) { return c.durum === 'Bekliyor' && ayniCiftlik_(k, c.ciftlik); });
+    }).filter(function (c) { return (c.durum === 'Bekliyor' || c.durum === 'Kilitli') && ayniCiftlik_(k, c.ciftlik); });
   }
   if (yetki_(k, 'sorumlu') || yetki_(k, 'formen')) {
     o.arizalar = arizalar.filter(function (a) { return ayniCiftlik_(k, a.ciftlik); }).reverse();
@@ -564,6 +582,7 @@ function cihazOnay_(k, g) {
     if (tel_(t.rows[i][0]) === hedef) {
       var durum = g.onay ? 'Onaylı' : 'Reddedildi';
       if (g.sifirla) {
+        PropertiesService.getScriptProperties().deleteProperty('pinHata_' + hedef);
         hucre_('Cihazlar', i + 2, 'PIN Özeti', '');
         hucre_('Cihazlar', i + 2, 'Oturum Anahtarı', '');
         durum = 'Bekliyor';
