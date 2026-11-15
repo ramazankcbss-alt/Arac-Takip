@@ -5,6 +5,7 @@ import '../tema.dart';
 import '../veri/model.dart';
 import 'ariza_bildir.dart';
 import 'bilesen.dart';
+import 'is_emri.dart';
 
 /// İzleme kadrosu (müdür, uzman, veteriner, raporlama) ve formenler için
 /// kapsamdaki çiftliklerin anlık durumu: aktif kullanım, iş emirleri, açık arızalar.
@@ -55,6 +56,21 @@ class _IzlemeSayfasiState extends State<IzlemeSayfasi> {
           sayac('Arızalı araç', arizali, Renk.amber),
         ]),
         const SizedBox(height: 12),
+        FilledButton.icon(
+          style: FilledButton.styleFrom(minimumSize: const Size(64, 56)),
+          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const IsEmriFormu())),
+          icon: const Icon(Icons.assignment_ind_outlined),
+          label: const Text('Formene İş Emri Ver', style: TextStyle(fontSize: 17)),
+        ),
+        const SizedBox(height: 8),
+        if (v.verdigimEmirler.any((e) => e.veren == k.telefon))
+          Panel(
+            baslik: 'Verdiğim iş emirleri',
+            child: Column(children: [
+              for (final e in v.verdigimEmirler.where((e) => e.veren == k.telefon).take(20))
+                IsEmriKarti(e: e, formenGorunumu: true)
+            ]),
+          ),
         OutlinedButton.icon(
           style: OutlinedButton.styleFrom(
             minimumSize: const Size(64, 52),

@@ -273,6 +273,12 @@ class IsEmri {
   String get aciklama => _s(j['aciklama']);
   String get durum => _s(j['durum']);
   bool get acik => durum == 'Verildi' || durum == 'Başladı';
+  String get veren => _s(j['veren']);
+  String get verenAd => _s(j['verenAd']);
+  String get ust => _s(j['ust']);
+  /// 'Formen' (beyaz yakadan formene) ya da 'Personel' (formenden personele)
+  String get hedef => _s(j['hedef']).isEmpty ? 'Personel' : _s(j['hedef']);
+  bool get formeneVerilen => hedef == 'Formen';
   String get aracMetni => [arac, ...ekipman].where((x) => x.isNotEmpty).join(' + ');
 }
 
@@ -428,6 +434,7 @@ const ekipmanTurleri = [
 /// İş emrinde çalışma yeri türleri.
 const yerTurleri = ['Tarla', 'Ahır', 'Silaj / Yem Deposu', 'Atölye', 'Diğer'];
 
+/// Makineli tarla işleri
 const tarlaIsleri = [
   'Toprak işleme',
   'Ekim',
@@ -441,6 +448,22 @@ const tarlaIsleri = [
   'Silaj hasadı',
 ];
 
+/// Beden işçiliği – tarım
+const tarlaBedenIsleri = [
+  'El ile çapa',
+  'Yabancı ot temizliği',
+  'Taş toplama',
+  'Sulama hattı döşeme / söküm',
+  'Yağmurlama başlığı değiştirme',
+  'Arık ve kanal temizliği',
+  'Fide dikimi',
+  'El ile hasat / toplama',
+  'Çuval yükleme / boşaltma',
+  'Çit ve tel örgü onarımı',
+  'Tarla kontrolü / gözlem',
+];
+
+/// Makineli ahır işleri
 const ahirIsleri = [
   'Yem karma ve yemleme',
   'Balya taşıma',
@@ -454,19 +477,46 @@ const ahirIsleri = [
   'Ahır bakım ve onarım',
 ];
 
-const digerIsler = ['Nakliye', 'Atölye / bakım', 'Diğer'];
+/// Beden işçiliği – hayvancılık
+const ahirBedenIsleri = [
+  'Sağım',
+  'Buzağı besleme',
+  'Hayvan bakımı ve tımar',
+  'Elle yem dağıtımı / yem itme',
+  'Elle gübre ve altlık temizliği',
+  'Padok temizliği',
+  'Ahır dezenfeksiyonu',
+  'Yalak temizliği',
+  'Hayvan sayımı ve kontrol',
+  'Küpe ve kayıt işlemleri',
+  'Doğum takibi',
+  'Veteriner uygulamasına yardım (aşı, tedavi)',
+  'Tırnak bakımına yardım',
+  'Hasta hayvan takibi',
+];
 
-/// Yer türüne göre önerilen işler.
-List<String> islerFor(String? yerTuru) {
+const digerIsler = ['Nakliye', 'Atölye / bakım', 'Diğer'];
+const genelBedenIsleri = ['Yükleme / boşaltma', 'Depo düzenleme', 'Genel temizlik', 'Çevre düzenleme'];
+
+/// Yer türüne göre önerilen işler: (makineli, beden işçiliği)
+(List<String>, List<String>) islerGrupFor(String? yerTuru) {
   switch (yerTuru) {
     case 'Tarla':
-      return [...tarlaIsleri, ...digerIsler];
+      return ([...tarlaIsleri, ...digerIsler], [...tarlaBedenIsleri, ...genelBedenIsleri]);
     case 'Ahır':
     case 'Silaj / Yem Deposu':
-      return [...ahirIsleri, ...digerIsler];
+      return ([...ahirIsleri, ...digerIsler], [...ahirBedenIsleri, ...genelBedenIsleri]);
     default:
-      return [...tarlaIsleri, ...ahirIsleri, ...digerIsler];
+      return (
+        [...tarlaIsleri, ...ahirIsleri, ...digerIsler],
+        [...tarlaBedenIsleri, ...ahirBedenIsleri, ...genelBedenIsleri]
+      );
   }
+}
+
+List<String> islerFor(String? yerTuru) {
+  final g = islerGrupFor(yerTuru);
+  return [...g.$1, ...g.$2];
 }
 
 const isTurleri = [...tarlaIsleri, ...ahirIsleri, ...digerIsler];

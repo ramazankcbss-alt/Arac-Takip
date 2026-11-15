@@ -39,7 +39,7 @@ var BASLIKLAR = {
   // Formenin personele verdiği iş emri: nerede, hangi iş, hangi araç ve makine-ekipmanla
   'İş_Emirleri': ['Emir No', 'Tarih', 'Personel Telefon', 'Personel', 'Formen Telefon', 'Formen', 'Çiftlik',
     'Yer Türü', 'Yer', 'İş', 'Araç No', 'Makine-Ekipman', 'Açıklama', 'Durum', 'Kullanım Kayıt No',
-    'Oluşturma', 'Güncelleme'],
+    'Oluşturma', 'Güncelleme', 'Veren Telefon', 'Veren', 'Üst Emir No', 'Hedef'],
   'Ekipler': ['Telefon', 'Ad Soyad', 'Formen Telefon', 'Formen', 'Çiftlik', 'Görevlendirme Zamanı', 'Görevlendiren'],
   'Görevlendirme_Geçmişi': ['Zaman', 'Telefon', 'Ad Soyad', 'Önceki Formen', 'Yeni Formen', 'Yeni Çiftlik', 'İşlemi Yapan'],
   'Bildirimler': ['Zaman', 'Alıcı Telefon', 'Tür', 'Başlık', 'Metin', 'Okundu', 'Anlık Gönderildi'],
@@ -122,6 +122,7 @@ function doPost(e) {
       case 'kullaniciIslem': return json_(kullaniciIslem_(k, g));
       case 'ciftlikSorumlusuAta': return json_(ciftlikSorumlusuAta_(k, g));
       case 'isEmriDurum': return json_(isEmriDurum_(k, g));
+      case 'isEmriDagit': return json_(isEmriDagit_(k, g));
       default: return json_({ ok: false, hata: 'Bilinmeyen işlem: ' + g.tur });
     }
   } catch (err) {
@@ -612,9 +613,13 @@ function veri_(k) {
         return { telefon: t, ad: plTum[t].ad, gorev: plTum[t].gorev, ciftlik: plTum[t].birim };
       }).sort(function (a, b) { return a.ad.localeCompare(b.ad, 'tr'); });
     }
+  }
+  if (yetki_(k, 'formen') || beyazYaka_(k)) {
     o.verdigimEmirler = isEmirleri_().filter(function (e) {
-      return (e.formen === k.telefon || ustYetki_(k, e.ciftlik)) && gunFarki_(e.tarih) <= 3 && gunFarki_(e.tarih) >= -2;
-    }).reverse().slice(0, 150);
+      return (e.veren === k.telefon || e.formen === k.telefon || ustYetki_(k, e.ciftlik)) &&
+        gunFarki_(e.tarih) <= 3 && gunFarki_(e.tarih) >= -2;
+    }).reverse().slice(0, 200);
+    if (!o.formenler) o.formenler = formenListesi_();
   }
   var izleyici = k.roller.indexOf(ROL_IZLEYICI) >= 0;
   if (izleyici || yetki_(k, 'formen')) {
@@ -727,6 +732,7 @@ function isBitir_(k, g) {
     if (e.kullanim === row[0] && e.durum === 'Başladı') {
       hucre_('İş_Emirleri', e.satir, 'Durum', 'Tamamlandı');
       hucre_('İş_Emirleri', e.satir, 'Güncelleme', simdi_());
+      if (e.ust) ustEmirKontrol_(e.ust);
     }
   });
   var a = aracBul_(row[2]);
@@ -1305,7 +1311,8 @@ function isEmirleri_() {
     return { satir: i + 2, no: r[0], tarih: r[1], telefon: tel_(r[2]), personel: r[3], formen: tel_(r[4]),
       formenAd: r[5], ciftlik: r[6], yerTuru: r[7], yer: r[8], is: r[9], arac: r[10],
       ekipman: bas_(r[11]) ? bas_(r[11]).split(/\s*,\s*/) : [], aciklama: r[12], durum: r[13],
-      kullanim: r[14], olusturma: r[15], guncelleme: r[16] };
+      kullanim: r[14], olusturma: r[15], guncelleme: r[16],
+      veren: tel_(r[17]) || tel_(r[4]), verenAd: r[18] || r[5], ust: r[19] || '', hedef: r[20] || 'Personel' };
   }).filter(function (e) { return bas_(e.no); });
 }
 
@@ -1329,11 +1336,22 @@ function yerOnerileri_() {
   });
 }
 
+/** İş emri verebilen beyaz yaka: Yönetici, Çiftlik Sorumlusu ve izleme kadrosu (müdür, uzman, veteriner, mühendis, raporlama). */
+function beyazYaka_(k) {
+  return yoneticiMi_(k) || ciftlikSorumlusu_(k) || k.roller.indexOf(ROL_IZLEYICI) >= 0;
+}
+
+/**
+ * İş emri (makam silsilesi): beyaz yaka → formen; formen → kendi ekibindeki personel.
+ * Formene verilen iş emrini formen "Personele dağıt" ile ekibine aktarır (isEmriDagit_).
+ */
 function isEmriVer_(k, g) {
-  if (!yetki_(k, 'formen')) return { ok: false, hata: 'İş emrini formen verir.' };
+  var formenMi = k.roller.indexOf(ROL_FORMEN) >= 0;
+  var beyaz = beyazYaka_(k) && !formenMi;
+  if (!formenMi && !beyazYaka_(k)) return { ok: false, hata: 'İş emri verme yetkiniz yok.' };
   var d = g.emir || {};
-  var kisiler = Array.isArray(d.personel) ? d.personel : [d.personel];
-  if (!kisiler.filter(Boolean).length) return { ok: false, hata: 'Personel seçin.' };
+  var kisiler = (Array.isArray(d.personel) ? d.personel : [d.personel]).map(tel_).filter(Boolean);
+  if (!kisiler.length) return { ok: false, hata: beyaz ? 'Formen seçin.' : 'Personel seçin.' };
   if (!bas_(d.is)) return { ok: false, hata: 'Yapılacak işi seçin.' };
   if (!bas_(d.yer)) return { ok: false, hata: 'Çalışılacak yeri yazın (tarla, parsel ya da ahır bölümü).' };
   var arac = bas_(d.arac) ? aracBul_(bas_(d.arac)) : null;
@@ -1341,26 +1359,92 @@ function isEmriVer_(k, g) {
   var ekipman = (Array.isArray(d.ekipman) ? d.ekipman : []).map(bas_).filter(Boolean);
   for (var i = 0; i < ekipman.length; i++) if (!aracBul_(ekipman[i])) return { ok: false, hata: 'Makine-ekipman bulunamadı: ' + ekipman[i] };
   var tarih = bas_(d.tarih) || bugun_();
+  var formenler = formenListesi_();
   var pl = personeller_();
-  var verilen = [];
+  var hedefler = [];
   for (var j = 0; j < kisiler.length; j++) {
-    var t = tel_(kisiler[j]);
+    var t = kisiler[j];
     var p = pl[t];
-    if (!p) return { ok: false, hata: 'Personel listesinde yok: ' + kisiler[j] };
-    if (p.arac === false) return { ok: false, hata: p.ad + ' araç-makine kadrosunda değil; iş emri verilemez.' };
-    if (!sorumlu_(k, t, roller_(t, p).ciftlik)) return { ok: false, hata: p.ad + ' sizin ekibinizde değil.' };
-    var no = yeniNo_('İş_Emirleri', 'E');
-    ekle_('İş_Emirleri', [no, tarih, t, p.ad, k.telefon, k.ad, roller_(t, p).ciftlik, bas_(d.yerTuru), bas_(d.yer),
-      bas_(d.is), arac ? arac.row[0] : '', ekipman.join(', '), bas_(d.aciklama), 'Verildi', '', simdi_(), simdi_()]);
-    var arAlt = [arac ? arac.row[0] + ' (' + [arac.row[1], arac.row[2]].filter(String).join(' ') + ')' : '',
-      ekipman.join(', ')].filter(String).join(' + ');
-    bildir_([t], 'İş emri', 'İş emri: ' + bas_(d.is) + ' – ' + bas_(d.yer),
-      [tarih + (bas_(d.yerTuru) ? ' · ' + bas_(d.yerTuru) : '') + ' · ' + bas_(d.yer),
-       arAlt ? 'Araç / makine: ' + arAlt : 'Araç gerekmiyor',
-       bas_(d.aciklama), 'Veren: ' + k.ad].filter(String).join('\n'));
-    verilen.push(no);
+    if (!p) return { ok: false, hata: 'Personel listesinde yok: ' + t };
+    var f = formenler.filter(function (x) { return x.telefon === t; })[0];
+    if (beyaz) {
+      if (!f) return { ok: false, hata: p.ad + ' formen değil. İş emri formene verilir; formen ekibine dağıtır.' };
+      if (!ayniCiftlik_(k, f.ciftlik) && !ciftlikSorumlusu_(k) && !yoneticiMi_(k) && k.ciftlik !== 'Tümü') {
+        return { ok: false, hata: f.ad + ' sizin çiftliğinizde değil.' };
+      }
+      if (ciftlikSorumlusu_(k) && !ayniCiftlik_(k, f.ciftlik)) return { ok: false, hata: f.ad + ' kapsamınızda değil.' };
+      hedefler.push({ t: t, ad: p.ad, formen: t, formenAd: p.ad, ciftlik: f.ciftlik, hedef: 'Formen' });
+    } else {
+      if (f) return { ok: false, hata: p.ad + ' formen; formenlere iş emrini beyaz yaka verir.' };
+      if (p.arac === false) return { ok: false, hata: p.ad + ' araç-makine ve saha kadrosunda değil.' };
+      if (!sorumlu_(k, t, roller_(t, p).ciftlik)) return { ok: false, hata: p.ad + ' sizin ekibinizde değil.' };
+      hedefler.push({ t: t, ad: p.ad, formen: k.telefon, formenAd: k.ad, ciftlik: roller_(t, p).ciftlik, hedef: 'Personel' });
+    }
   }
+  var verilen = [];
+  hedefler.forEach(function (h) {
+    var no = yeniNo_('İş_Emirleri', 'E');
+    ekle_('İş_Emirleri', [no, tarih, h.t, h.ad, h.formen, h.formenAd, h.ciftlik, bas_(d.yerTuru), bas_(d.yer),
+      bas_(d.is), arac ? arac.row[0] : '', ekipman.join(', '), bas_(d.aciklama), 'Verildi', '', simdi_(), simdi_(),
+      k.telefon, k.ad, bas_(d.ust), h.hedef]);
+    isEmriBildir_(h.t, no, tarih, d, arac, ekipman, k.ad, h.hedef === 'Formen');
+    verilen.push(no);
+  });
   return { ok: true, nolar: verilen };
+}
+
+function isEmriBildir_(telefon, no, tarih, d, arac, ekipman, veren, formeneMi) {
+  var arAlt = [arac ? arac.row[0] + ' (' + [arac.row[1], arac.row[2]].filter(String).join(' ') + ')' : '',
+    (ekipman || []).join(', ')].filter(String).join(' + ');
+  bildir_([telefon], 'İş emri', (formeneMi ? 'Ekibinize iş emri: ' : 'İş emri: ') + bas_(d.is) + ' – ' + bas_(d.yer),
+    [tarih + (bas_(d.yerTuru) ? ' · ' + bas_(d.yerTuru) : '') + ' · ' + bas_(d.yer),
+     arAlt ? 'Araç / makine: ' + arAlt : 'Araç gerekmiyor',
+     bas_(d.aciklama), 'Veren: ' + veren, formeneMi ? 'Uygulamada "Personele dağıt" ile ekibinize aktarın.' : '']
+      .filter(String).join('\n'));
+}
+
+/** Formen: kendisine verilen iş emrini ekibindeki personele dağıtır (bilgiler yeniden yazılmaz). */
+function isEmriDagit_(k, g) {
+  var em = isEmriBul_(bas_(g.no));
+  if (!em) return { ok: false, hata: 'İş emri bulunamadı.' };
+  var e = em.e;
+  if (e.hedef !== 'Formen') return { ok: false, hata: 'Bu iş emri personele verilmiş; dağıtılamaz.' };
+  if (e.telefon !== k.telefon && !ustYetki_(k, e.ciftlik)) return { ok: false, hata: 'Bu iş emri size verilmemiş.' };
+  if (['İptal', 'Tamamlandı'].indexOf(e.durum) >= 0) return { ok: false, hata: 'İş emri ' + e.durum.toLowerCase() + '.' };
+  var kisiler = (Array.isArray(g.personel) ? g.personel : []).map(tel_).filter(Boolean);
+  if (!kisiler.length) return { ok: false, hata: 'Personel seçin.' };
+  var d = {
+    yerTuru: e.yerTuru, yer: e.yer, is: e.is, tarih: e.tarih,
+    arac: g.arac !== undefined ? bas_(g.arac) : e.arac,
+    ekipman: Array.isArray(g.ekipman) ? g.ekipman : e.ekipman,
+    aciklama: [e.aciklama, bas_(g.aciklama)].filter(String).join(' | '),
+    personel: kisiler, ust: e.no
+  };
+  var formenK = { telefon: e.telefon, ad: e.personel, roller: [ROL_FORMEN], ciftlik: e.ciftlik };
+  var r = isEmriVer_(e.telefon === k.telefon ? k : formenK, { emir: d });
+  if (!r.ok) return r;
+  hucre_('İş_Emirleri', em.satir, 'Durum', 'Dağıtıldı');
+  hucre_('İş_Emirleri', em.satir, 'Güncelleme', simdi_());
+  if (e.veren && e.veren !== k.telefon) {
+    bildir_([e.veren], 'İş emri', 'İş emri dağıtıldı: ' + e.is + ' – ' + e.yer,
+      e.personel + ' iş emrini ' + kisiler.length + ' personele dağıttı.');
+  }
+  return { ok: true, nolar: r.nolar };
+}
+
+/** Alt iş emirlerinin tamamı kapandıysa üst (formene verilen) iş emri tamamlanır. */
+function ustEmirKontrol_(ustNo) {
+  var l = isEmirleri_();
+  var ust = l.filter(function (x) { return x.no === ustNo; })[0];
+  if (!ust || ust.durum === 'Tamamlandı' || ust.durum === 'İptal') return;
+  var alt = l.filter(function (x) { return x.ust === ustNo; });
+  if (!alt.length) return;
+  if (alt.every(function (x) { return x.durum === 'Tamamlandı' || x.durum === 'İptal'; })) {
+    hucre_('İş_Emirleri', ust.satir, 'Durum', 'Tamamlandı');
+    hucre_('İş_Emirleri', ust.satir, 'Güncelleme', simdi_());
+    bildir_([ust.veren, ust.telefon].filter(Boolean), 'İş emri', 'İş emri tamamlandı: ' + ust.is + ' – ' + ust.yer,
+      ust.personel + ' ekibine dağıtılan ' + alt.length + ' iş emri kapandı.');
+  }
 }
 
 /** Personel: araçsız işi tamamlandı bildirir. Formen: iptal eder ya da tamamlandı işaretler. */
@@ -1370,15 +1454,26 @@ function isEmriDurum_(k, g) {
   var e = em.e;
   var durum = bas_(g.durum);
   if (['Tamamlandı', 'İptal'].indexOf(durum) < 0) return { ok: false, hata: 'Geçersiz durum.' };
-  var formenMi = yetki_(k, 'formen') && (e.formen === k.telefon || ustYetki_(k, e.ciftlik));
-  if (durum === 'İptal' && !formenMi) return { ok: false, hata: 'İş emrini yalnız veren formen iptal eder.' };
-  if (durum === 'Tamamlandı' && !formenMi && e.telefon !== k.telefon) return { ok: false, hata: 'Bu iş emri size ait değil.' };
+  var yetkili = e.veren === k.telefon || e.formen === k.telefon || ustYetki_(k, e.ciftlik);
+  if (durum === 'İptal' && !yetkili) return { ok: false, hata: 'İş emrini yalnız veren ya da üst yetkili iptal eder.' };
+  if (durum === 'Tamamlandı' && !yetkili && e.telefon !== k.telefon) return { ok: false, hata: 'Bu iş emri size ait değil.' };
   hucre_('İş_Emirleri', em.satir, 'Durum', durum);
   hucre_('İş_Emirleri', em.satir, 'Güncelleme', simdi_());
-  if (durum === 'İptal') bildir_([e.telefon], 'İş emri', 'İş emri iptal edildi', e.is + ' – ' + e.yer + ' (' + e.tarih + ')');
-  if (durum === 'Tamamlandı' && e.telefon === k.telefon && e.formen) {
-    bildir_([e.formen], 'İş emri', 'İş emri tamamlandı', e.personel + ': ' + e.is + ' – ' + e.yer);
+  if (durum === 'İptal') {
+    // Dağıtılmış alt iş emirleri de iptal edilir.
+    var alt = isEmirleri_().filter(function (x) { return x.ust === e.no && ['Tamamlandı', 'İptal'].indexOf(x.durum) < 0; });
+    alt.forEach(function (x) {
+      hucre_('İş_Emirleri', x.satir, 'Durum', 'İptal');
+      hucre_('İş_Emirleri', x.satir, 'Güncelleme', simdi_());
+    });
+    bildir_([e.telefon].concat(alt.map(function (x) { return x.telefon; })).filter(function (t) { return t !== k.telefon; }),
+      'İş emri', 'İş emri iptal edildi', e.is + ' – ' + e.yer + ' (' + e.tarih + ')');
   }
+  if (durum === 'Tamamlandı' && e.telefon === k.telefon) {
+    var alici = e.hedef === 'Formen' ? e.veren : e.formen;
+    if (alici && alici !== k.telefon) bildir_([alici], 'İş emri', 'İş emri tamamlandı', e.personel + ': ' + e.is + ' – ' + e.yer);
+  }
+  if (e.ust) ustEmirKontrol_(e.ust);
   return { ok: true };
 }
 

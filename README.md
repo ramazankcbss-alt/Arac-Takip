@@ -156,3 +156,14 @@ Erişim kapatıldı, Programdan çıkarıldı). İşlemler:
 - Malzeme / parça talebi kaydedildikten sonra **Paylaş** ile kurumsal metin olarak Google Chat satınalma
   grubuna (ya da WhatsApp / e-posta) gönderilebilir. Kayıt uygulamada tutulur; günlük mutabakat kontrolü
   Chat'teki satınalma yazışmalarını uygulama kayıtlarıyla karşılaştırır.
+
+## İş emri: makam silsilesi ve beden işçiliği
+
+- Beyaz yaka (Yönetici, Çiftlik Sorumlusu, müdür, müdür yardımcısı, uzman, veteriner, ziraat mühendisi,
+  raporlama vb.) iş emrini **formene** verir (Genel Durum → Formene İş Emri Ver).
+- Formen kendisine gelen iş emrini **Personele dağıt** ile ekibindeki personele aktarır: yer, iş ve talimat
+  yeniden yazılmaz; araç, makine-ekipman ve ek talimat değiştirilebilir. Formen işi kendisi de tamamlayabilir.
+- Formen yalnız kendi ekibine iş emri verir. Personelin tüm alt iş emirleri kapanınca formene verilen iş emri
+  kendiliğinden tamamlanır ve veren beyaz yakaya bildirim gider. Veren kişi iptal ederse alt iş emirleri de iptal olur.
+- İş listesi yer türüne göre **Makineli işler** ve **Beden işçiliği** (çapa, ot temizliği, sulama hattı,
+  sağım, buzağı besleme, hayvan bakımı, padok temizliği, dezenfeksiyon, veteriner uygulamasına yardım vb.) olarak ayrılır.
