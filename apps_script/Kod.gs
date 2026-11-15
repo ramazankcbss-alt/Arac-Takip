@@ -113,6 +113,7 @@ function doPost(e) {
       case 'isEmriVer': return json_(isEmriVer_(k, g));
       case 'bildirimKontrol': return json_(bildirimKontrol_(k, g));
       case 'fcmKaydet': return json_(fcmKaydet_(k, g));
+      case 'kullaniciIslem': return json_(kullaniciIslem_(k, g));
       case 'isEmriDurum': return json_(isEmriDurum_(k, g));
       default: return json_({ ok: false, hata: 'Bilinmeyen işlem: ' + g.tur });
     }
@@ -361,6 +362,9 @@ function giris_(g) {
     if (!otomatik) cihazBildir_(telefon, ad, r.ciftlik);
     return { ok: true, oturum: oturum, durum: durum, kisi: { ad: ad, telefon: telefon, ciftlik: r.ciftlik, roller: r.roller } };
   }
+  if (kayit[6] === 'Erişim kapatıldı') {
+    return { ok: false, hata: 'Uygulama erişiminiz kapatıldı. Yöneticinize başvurun.' };
+  }
   if (kayit[6] === 'Kilitli') {
     return { ok: false, hata: 'Hesap, hatalı PIN denemeleri nedeniyle kilitlendi. PIN sıfırlama için yöneticinize başvurun.' };
   }
@@ -544,6 +548,7 @@ function veri_(k) {
     o.ekibim = ek.ekibim;
     o.atanabilir = ek.atanabilir;
     o.formenler = ek.formenler;
+    if (yoneticiMi_(k)) o.kullanicilar = kullanicilar_();
     o.verdigimEmirler = isEmirleri_().filter(function (e) {
       return (e.formen === k.telefon || ustYetki_(k, e.ciftlik)) && gunFarki_(e.tarih) <= 3 && gunFarki_(e.tarih) >= -2;
     }).reverse().slice(0, 150);
@@ -929,6 +934,80 @@ function bildirimKontrol_(k, g) {
     if (tel_(r[1]) === k.telefon && r[5] !== 'Evet' && r[6] !== 'Evet') yeni.push({ tur: r[2], baslik: r[3], metin: r[4] });
   }
   return { ok: true, son: enSon, yeni: yeni.slice(-10) };
+}
+
+// ---------------------------------------------------------------------------
+// Kullanıcı yönetimi (yalnız Yönetici): erişimi kapatma, programdan çıkarma, geri alma
+
+function kullanicilar_() {
+  var pl = personeller_();
+  var l = tablo_('Cihazlar').rows.map(function (r) {
+    var t = tel_(r[0]); var p = pl[t]; var ro = roller_(t, p);
+    return { telefon: t, ad: r[1], gorev: p ? p.gorev : '', ciftlik: ro.ciftlik, roller: ro.roller,
+      cihaz: r[3], durum: r[6], onaylayan: r[7], talep: r[8], onay: r[9] };
+  });
+  rollerSatirlari_().forEach(function (r) {
+    if (buyuk_(r[2]).indexOf('HARİÇ') >= 0) {
+      l.push({ telefon: tel_(r[0]), ad: r[1], gorev: '', ciftlik: '', roller: [], cihaz: '', durum: 'Programdan çıkarıldı',
+        onaylayan: '', talep: '', onay: r[4] || '' });
+    }
+  });
+  return l.sort(function (a, b) { return String(a.ad).localeCompare(String(b.ad), 'tr'); });
+}
+
+function satirSil_(ad, kosul) {
+  var t = tablo_(ad);
+  for (var i = t.rows.length - 1; i >= 0; i--) if (kosul(t.rows[i])) t.sh.deleteRow(i + 2);
+}
+
+/**
+ * islem: 'kapat'  → erişim askıya alınır (giriş yapamaz; kayıtları ve ekibi korunur),
+ *        'cikar'  → programdan tamamen çıkarılır (Roller'a 'Hariç' yazılır; cihaz, ekip ve rol kayıtları silinir;
+ *                   geçmiş kullanım, arıza ve iş emri kayıtları korunur),
+ *        'geriAl' → kapatılan erişim açılır ya da çıkarılan kişi yeniden giriş yapabilir hale gelir.
+ */
+function kullaniciIslem_(k, g) {
+  if (!yoneticiMi_(k)) return { ok: false, hata: 'Bu işlemi yalnız Yönetici yapar.' };
+  var hedef = tel_(g.telefon);
+  if (!hedef) return { ok: false, hata: 'Telefon numarası geçersiz.' };
+  if (hedef === k.telefon) return { ok: false, hata: 'Kendi erişiminizi kapatamazsınız.' };
+  var islem = bas_(g.islem);
+  var cih = tablo_('Cihazlar');
+  var satir = -1, ad = '';
+  cih.rows.forEach(function (r, i) { if (tel_(r[0]) === hedef) { satir = i + 2; ad = r[1]; } });
+  var p = personeller_()[hedef];
+  ad = ad || (p ? p.ad : hedef);
+  if (islem === 'kapat') {
+    if (satir < 0) return { ok: false, hata: 'Bu kişinin uygulama kaydı yok.' };
+    hucre_('Cihazlar', satir, 'Durum', 'Erişim kapatıldı');
+    hucre_('Cihazlar', satir, 'Oturum Anahtarı', '');
+    hucre_('Cihazlar', satir, 'Bildirim Anahtarı', '');
+    hucre_('Cihazlar', satir, 'Onaylayan', k.ad);
+    hucre_('Cihazlar', satir, 'Onay Zamanı', simdi_());
+    return { ok: true, mesaj: ad + ' için uygulama erişimi kapatıldı.' };
+  }
+  if (islem === 'cikar') {
+    satirSil_('Cihazlar', function (r) { return tel_(r[0]) === hedef; });
+    satirSil_('Ekipler', function (r) { return tel_(r[0]) === hedef; });
+    satirSil_('Roller', function (r) { return tel_(r[0]) === hedef; });
+    ekle_('Roller', [hedef, ad, 'Hariç', '', 'Programdan çıkarıldı: ' + simdi_() + ' – ' + k.ad]);
+    ekle_('Görevlendirme_Geçmişi', [simdi_(), hedef, ad, '', 'Programdan çıkarıldı', '', k.ad]);
+    ROLLER_ = null; EKIP_ = null;
+    CacheService.getScriptCache().remove('personel_tum');
+    return { ok: true, mesaj: ad + ' programdan çıkarıldı. Geçmiş kayıtları korunuyor.' };
+  }
+  if (islem === 'geriAl') {
+    satirSil_('Roller', function (r) { return tel_(r[0]) === hedef && buyuk_(r[2]).indexOf('HARİÇ') >= 0; });
+    ROLLER_ = null;
+    CacheService.getScriptCache().remove('personel_tum');
+    if (satir > 0 && cih.rows[satir - 2][6] === 'Erişim kapatıldı') {
+      hucre_('Cihazlar', satir, 'Durum', 'Onaylı');
+      hucre_('Cihazlar', satir, 'Onaylayan', k.ad);
+      hucre_('Cihazlar', satir, 'Onay Zamanı', simdi_());
+    }
+    return { ok: true, mesaj: ad + ' için erişim yeniden açıldı. Kişi uygulamaya PIN ile giriş yapabilir.' };
+  }
+  return { ok: false, hata: 'Geçersiz işlem.' };
 }
 
 // ---------------------------------------------------------------------------

@@ -10,6 +10,7 @@ import 'bildirimler.dart';
 import 'ekip.dart';
 import 'islerim.dart';
 import 'izleme.dart';
+import 'kullanicilar.dart';
 import 'onay.dart';
 
 class AnaEkran extends StatefulWidget {
@@ -115,6 +116,9 @@ class _AnaEkranState extends State<AnaEkran> with WidgetsBindingObserver {
               PopupMenuButton<String>(
                 onSelected: (x) async {
                   if (x == 'guncelle') Guncelleme.kontrolEt(context, elle: true);
+                  if (x == 'kullanicilar') {
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => const KullanicilarSayfasi()));
+                  }
                   if (x == 'cikis') {
                     final evet = await showDialog<bool>(
                       context: context,
@@ -137,6 +141,8 @@ class _AnaEkranState extends State<AnaEkran> with WidgetsBindingObserver {
                     child: Text('${k?.ad ?? ''}\n${k?.rolMetni ?? ''}',
                         style: const TextStyle(color: Renk.yazi)),
                   ),
+                  if (k?.yonetici ?? false)
+                    const PopupMenuItem(value: 'kullanicilar', child: Text('Kullanıcılar')),
                   const PopupMenuItem(value: 'guncelle', child: Text('Güncelleme kontrolü')),
                   const PopupMenuItem(value: 'cikis', child: Text('Oturumu kapat')),
                 ],

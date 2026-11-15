@@ -125,3 +125,13 @@ kurulu uygulamalar güncellemeyi kendileri alır.
 - Cihaz onayı ve PIN sıfırlama **yalnız Yönetici** tarafından yapılır (Günlük Onay ekranı ya da
   Cihazlar sayfasında Durum = `Onaylı`). Formen, Makine-Ekipman Sorumlusu ve Çiftlik Sorumlusu yapamaz.
   Yeni cihaz talepleri yalnız Yöneticiye bildirilir. Bu bölümdeki önceki ifadelerin yerine geçer.
+
+## Kullanıcı yönetimi (Yönetici)
+
+Sağ üst menü → **Kullanıcılar**: tüm uygulama kullanıcıları durumlarıyla (Onaylı, Bekliyor, Kilitli,
+Erişim kapatıldı, Programdan çıkarıldı). İşlemler:
+- **Cihazı onayla / Talebi reddet / PIN sıfırla**
+- **Erişimi kapat**: kişi giriş yapamaz; ekibi, rolü ve kayıtları korunur.
+- **Programdan çıkar**: Roller'a `Hariç` yazılır; cihaz, ekip ve rol kayıtları silinir; ekip ve iş emri
+  listelerinde görünmez. Geçmiş kullanım, arıza ve iş emri kayıtları korunur.
+- **Erişimi yeniden aç**: iki işlemi de geri alır.

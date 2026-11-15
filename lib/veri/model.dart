@@ -193,6 +193,20 @@ class CihazTalebi {
   bool get kilitli => _s(j['durum']) == 'Kilitli';
 }
 
+/// Uygulama kullanıcısı (Yönetici: kullanıcı yönetimi).
+class Kullanici {
+  Kullanici(this.j);
+  final Map<String, dynamic> j;
+  String get telefon => _s(j['telefon']);
+  String get ad => _s(j['ad']);
+  String get gorev => _s(j['gorev']);
+  String get ciftlik => _s(j['ciftlik']);
+  List<String> get roller => (j['roller'] is List) ? (j['roller'] as List).map(_s).toList() : const [];
+  String get cihaz => _s(j['cihaz']);
+  String get durum => _s(j['durum']);
+  String get onay => _s(j['onay']);
+}
+
 /// Formenin personele verdiği iş emri.
 class IsEmri {
   IsEmri(this.j);
@@ -260,6 +274,7 @@ class Veri {
         bakimUyari = _liste(j['bakimUyari']).map(BakimUyari.new).toList(),
         plan = _liste(j['plan']).map(Plan.new).toList(),
         bakimKayit = _liste(j['bakimKayit']).map(BakimKaydi.new).toList(),
+        kullanicilar = _liste(j['kullanicilar']).map(Kullanici.new).toList(),
         izlemeEmirleri = _liste(j['izlemeEmirleri']).map(IsEmri.new).toList(),
         isEmirlerim = _liste(j['isEmirlerim']).map(IsEmri.new).toList(),
         verdigimEmirler = _liste(j['verdigimEmirler']).map(IsEmri.new).toList(),
@@ -283,6 +298,7 @@ class Veri {
   final List<String> ciftlikler;
   final List<EkipUyesi> ekibim, atanabilir;
   final List<IsEmri> isEmirlerim, verdigimEmirler, izlemeEmirleri;
+  final List<Kullanici> kullanicilar;
   final List<YerOnerisi> yerler;
   final List<Formen> formenler;
 

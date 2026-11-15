@@ -65,6 +65,9 @@ class Rozet extends StatelessWidget {
         return Rozet(d, renk: Renk.amber, zemin: Renk.amberAcik);
       case 'Arızalı':
       case 'Bildirildi':
+      case 'Kilitli':
+      case 'Erişim kapatıldı':
+      case 'Programdan çıkarıldı':
       case 'Gecikti':
         return Rozet(d, renk: Renk.kirmizi, zemin: Renk.kirmiziAcik);
       default:
