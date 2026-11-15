@@ -195,17 +195,26 @@ function yeniNo_(ad, onEk) {
 
 function personeller_() {
   var c = CacheService.getScriptCache();
-  var j = c.get('personel');
+  var j = c.get('personel_arac');
   if (j) return JSON.parse(j);
   var sh = SpreadsheetApp.openById(RAPOR_TABLO_ID).getSheetByName('Personel_Listesi');
   var n = sh.getLastRow();
   var rows = n < 2 ? [] : sh.getRange(2, 1, n - 1, 5).getDisplayValues();
+  // Roller sayfası: herhangi bir rol yazılan kişi dahil edilir, 'Hariç' yazılan çıkarılır.
+  var rolde = {}, haric = {};
+  rollerSatirlari_().forEach(function (r) {
+    var t = tel_(r[0]);
+    if (!t || !bas_(r[2])) return;
+    if (buyuk_(r[2]).indexOf('HARİÇ') >= 0) haric[t] = true; else rolde[t] = true;
+  });
   var m = {};
   rows.forEach(function (r) {
     var t = tel_(r[3]);
-    if (t) m[t] = { ad: bas_(r[0]), gorev: bas_(r[1]), birim: bas_(r[2]) };
+    if (!t || haric[t]) return;
+    if (!aracPersoneli_(r[1]) && !rolde[t]) return;
+    m[t] = { ad: bas_(r[0]), gorev: bas_(r[1]), birim: bas_(r[2]) };
   });
-  c.put('personel', JSON.stringify(m), 600);
+  c.put('personel_arac', JSON.stringify(m), 600);
   return m;
 }
 
@@ -228,6 +237,20 @@ function ekipler_() {
   return m;
 }
 
+/**
+ * Araç ve makine kullanan görevler (Personel_Listesi → Görev). Güvenlik,
+ * veteriner, raporlama, kalite, mühendis, uzman ve müdür kadroları dahil edilmez;
+ * gerekirse Roller sayfasından tek tek eklenir ya da 'Hariç' ile çıkarılır.
+ */
+function aracPersoneli_(gorev) {
+  var g = buyuk_(gorev);
+  var haric = ['GÜVENLİK', 'VETERİNER', 'RAPORLAMA', 'KALİTE', 'ZOOTEKNİST', 'MÜHENDİS', 'MÜDÜR', 'UZMAN', 'YÖN.'];
+  for (var i = 0; i < haric.length; i++) if (g.indexOf(haric[i]) >= 0) return false;
+  var dahil = ['PERSONEL', 'OPERATÖR', 'FORMEN', 'ŞEF', 'BAKIM', 'ONARIM', 'USTA', 'TAMİR', 'ATÖLYE', 'ŞOFÖR', 'SÜRÜCÜ'];
+  for (var j = 0; j < dahil.length; j++) if (g.indexOf(dahil[j]) >= 0) return true;
+  return false;
+}
+
 function roller_(telefon, p) {
   var set = {};
   var ciftlik = p ? p.birim : '';
@@ -235,7 +258,9 @@ function roller_(telefon, p) {
   if (e && e.ciftlik) ciftlik = e.ciftlik;
   rollerSatirlari_().forEach(function (r) {
     if (tel_(r[0]) === telefon && bas_(r[2])) {
-      bas_(r[2]).split(',').forEach(function (x) { if (bas_(x)) set[bas_(x)] = true; });
+      bas_(r[2]).split(',').forEach(function (x) {
+        if (bas_(x) && buyuk_(x).indexOf('HARİÇ') < 0) set[bas_(x)] = true;
+      });
       if (bas_(r[3])) ciftlik = bas_(r[3]);
     }
   });
