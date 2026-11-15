@@ -296,9 +296,12 @@ function izleyiciMi_(telefon) {
   return roller_(t, personeller_()[t]).roller.indexOf(ROL_IZLEYICI) >= 0;
 }
 function yoneticiMi_(k) { return k.roller.indexOf(ROL_YONETICI) >= 0; }
-/** Cihaz onayı ve PIN sıfırlama yetkisi: izleyici kadrosu yalnız Yönetici, diğerleri sorumlu formen/sorumlu. */
+/** Cihaz onayı ve PIN sıfırlama yetkisi: Yönetici; izleyici kadrosunda yalnız Yönetici; diğerlerinde sorumlu formen / Makine-Ekipman Sorumlusu. Çiftlik Sorumlusu yapamaz. */
 function cihazYetkili_(k, telefon, ciftlik) {
-  if (izleyiciMi_(telefon)) return yoneticiMi_(k);
+  if (yoneticiMi_(k)) return true;
+  // Çiftlik Sorumlusu cihaz onayı ve PIN sıfırlama yapamaz (formen rolü de yoksa).
+  if (ciftlikSorumlusu_(k) && k.roller.indexOf(ROL_FORMEN) < 0 && !yetki_(k, 'sorumlu')) return false;
+  if (izleyiciMi_(telefon)) return false;
   if (yetki_(k, 'sorumlu') && !yetki_(k, 'formen')) return ayniCiftlik_(k, ciftlik);
   return sorumlu_(k, telefon, ciftlik);
 }

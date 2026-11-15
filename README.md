@@ -114,7 +114,8 @@ kurulu uygulamalar güncellemeyi kendileri alır.
 
 - Roller sayfasında `Çiftlik Sorumlusu` rolü verilen kişi (müdür, müdür yardımcısı, uzman), Çiftlik
   sütununda yazan çiftlikte (ya da `Tümü`) formen yetkilerinin tamamına sahiptir: personeli formenlere
-  görevlendirir, iş emri verir, günlük kayıtları onaylar. Formen listesinde yer almaz.
+  görevlendirir, iş emri verir, günlük kayıtları onaylar. Cihaz onayı ve PIN sıfırlama yapamaz.
+  Formen listesinde yer almaz.
 - **Ekipler** ekranı: formenlere göre personel dağılımı ve formene bağlı olmayan personel sayısı;
   dokununca liste süzülür. Personel işaretlenerek toplu **Formene görevlendir / Ekipten çıkar / Ekibime al**.
   Formenler ekip üyesi listelerinde görünmez.
