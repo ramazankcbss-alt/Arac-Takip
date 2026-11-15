@@ -230,6 +230,16 @@ class CihazTalebi {
   bool get kilitli => _s(j['durum']) == 'Kilitli';
 }
 
+/// Personel listesindeki kişi (Yönetici seçimleri için).
+class PersonelKaydi {
+  PersonelKaydi(this.j);
+  final Map<String, dynamic> j;
+  String get telefon => _s(j['telefon']);
+  String get ad => _s(j['ad']);
+  String get gorev => _s(j['gorev']);
+  String get ciftlik => _s(j['ciftlik']);
+}
+
 /// Uygulama kullanıcısı (Yönetici: kullanıcı yönetimi).
 class Kullanici {
   Kullanici(this.j);
@@ -311,6 +321,8 @@ class Veri {
         bakimUyari = _liste(j['bakimUyari']).map(BakimUyari.new).toList(),
         plan = _liste(j['plan']).map(Plan.new).toList(),
         bakimKayit = _liste(j['bakimKayit']).map(BakimKaydi.new).toList(),
+        ciftlikSorumlulari = _liste(j['ciftlikSorumlulari']).map(PersonelKaydi.new).toList(),
+        personelTum = _liste(j['personelTum']).map(PersonelKaydi.new).toList(),
         talepler = _liste(j['talepler']).map(Talep.new).toList(),
         kullanicilar = _liste(j['kullanicilar']).map(Kullanici.new).toList(),
         izlemeEmirleri = _liste(j['izlemeEmirleri']).map(IsEmri.new).toList(),
@@ -338,6 +350,7 @@ class Veri {
   final List<IsEmri> isEmirlerim, verdigimEmirler, izlemeEmirleri;
   final List<Kullanici> kullanicilar;
   final List<Talep> talepler;
+  final List<PersonelKaydi> ciftlikSorumlulari, personelTum;
   final List<YerOnerisi> yerler;
   final List<Formen> formenler;
 

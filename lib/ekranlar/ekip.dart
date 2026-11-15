@@ -101,6 +101,155 @@ class _EkipSayfasiState extends State<EkipSayfasi> {
     if (evet == true && mounted) await _ata(telefonlar, '', '${telefonlar.length} personel ekipten çıkarıldı.');
   }
 
+  /// Yönetici: erişimi kapatma / programdan çıkarma (toplu).
+  Future<void> _kullanici(List<String> telefonlar, String islem_) async {
+    final cikar = islem_ == 'cikar';
+    final evet = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(cikar ? 'Programdan çıkar' : 'Uygulama erişimini kapat'),
+        content: Text(cikar
+            ? '${telefonlar.length} kişi programdan tamamen çıkarılacak: uygulamaya giremez, ekip ve iş emri '
+                'listelerinde görünmez; cihaz, ekip ve rol kayıtları silinir. Geçmiş kullanım, arıza ve iş emri '
+                'kayıtları korunur. Kullanıcılar ekranından geri alınabilir.'
+            : '${telefonlar.length} kişi uygulamaya giremeyecek. Ekibi, rolü ve kayıtları korunur; '
+                'Kullanıcılar ekranından yeniden açılabilir.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Vazgeç')),
+          FilledButton(
+            style: cikar ? FilledButton.styleFrom(backgroundColor: Renk.kirmizi) : null,
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(cikar ? 'Programdan çıkar' : 'Erişimi kapat'),
+          ),
+        ],
+      ),
+    );
+    if (evet != true || !mounted) return;
+    final j = await islem(context, 'kullaniciIslem', {'telefonlar': telefonlar, 'islem': islem_});
+    if (j != null && mounted) {
+      setState(_secili.clear);
+      final m = j['mesaj']?.toString() ?? '';
+      if (m.isNotEmpty) bildir(context, m);
+    }
+  }
+
+  /// Yönetici: Çiftlik Sorumlusu (beyaz yaka) atama ve kapsam.
+  Future<String?> _ciftlikSec(List<String> ciftlikler, String baslik) => showModalBottomSheet<String>(
+        context: context,
+        builder: (ctx) => SafeArea(
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(baslik, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+              ),
+              ListTile(
+                leading: const Icon(Icons.public),
+                title: const Text('Tüm çiftlikler'),
+                onTap: () => Navigator.pop(ctx, 'Tümü'),
+              ),
+              for (final c in ciftlikler)
+                ListTile(leading: const Icon(Icons.agriculture_outlined), title: Text(c), onTap: () => Navigator.pop(ctx, c)),
+            ],
+          ),
+        ),
+      );
+
+  Future<void> _sorumluAta(Veri v) async {
+    final mevcut = {for (final c in v.ciftlikSorumlulari) c.telefon};
+    var ara = '';
+    final kisi = await showModalBottomSheet<PersonelKaydi>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, ss) {
+          final l = v.personelTum
+              .where((p) => !mevcut.contains(p.telefon) && p.telefon != v.kisi.telefon)
+              .where((p) => ara.isEmpty || '${p.ad} ${p.gorev} ${p.ciftlik}'.toLowerCase().contains(ara))
+              .toList();
+          return SafeArea(
+            child: SizedBox(
+              height: MediaQuery.of(ctx).size.height * 0.8,
+              child: Column(
+                children: [
+                  Padding(
+                    padding: EdgeInsets.fromLTRB(16, 16, 16, 8 + MediaQuery.of(ctx).viewInsets.bottom * 0),
+                    child: TextField(
+                      decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: 'Personel ara'),
+                      onChanged: (x) => ss(() => ara = x.trim().toLowerCase()),
+                    ),
+                  ),
+                  Expanded(
+                    child: ListView(
+                      children: [
+                        for (final p in l)
+                          ListTile(
+                            title: Text(p.ad),
+                            subtitle: Text([p.gorev, p.ciftlik].where((x) => x.isNotEmpty).join(' · ')),
+                            onTap: () => Navigator.pop(ctx, p),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+    if (kisi == null || !mounted) return;
+    final c = await _ciftlikSec(v.ciftlikler, '${kisi.ad} · sorumlu olacağı çiftlik');
+    if (c == null || !mounted) return;
+    final j = await islem(context, 'ciftlikSorumlusuAta', {'telefon': kisi.telefon, 'ciftlik': c});
+    if (j != null && mounted) bildir(context, j['mesaj']?.toString() ?? 'Atandı.');
+  }
+
+  Widget _sorumluPaneli(Veri v) => Panel(
+        baslik: 'Çiftlik Sorumluları (beyaz yaka)',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'Kapsamındaki çiftliklerde personeli formenlere görevlendirir, iş emri verir ve günlük kayıtları onaylar.',
+              style: TextStyle(color: Renk.soluk, fontSize: 12),
+            ),
+            for (final c in v.ciftlikSorumlulari)
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.badge_outlined),
+                title: Text(c.ad),
+                subtitle: Text(c.ciftlik == 'Tümü' ? 'Tüm çiftlikler' : c.ciftlik),
+                trailing: PopupMenuButton<String>(
+                  onSelected: (x) async {
+                    if (x == 'kapsam') {
+                      final yeni = await _ciftlikSec(v.ciftlikler, '${c.ad} · sorumlu olacağı çiftlik');
+                      if (yeni == null || !mounted) return;
+                      final j = await islem(context, 'ciftlikSorumlusuAta', {'telefon': c.telefon, 'ciftlik': yeni});
+                      if (j != null && mounted) bildir(context, j['mesaj']?.toString() ?? '');
+                    }
+                    if (x == 'kaldir') {
+                      final j = await islem(context, 'ciftlikSorumlusuAta', {'telefon': c.telefon, 'kaldir': true});
+                      if (j != null && mounted) bildir(context, j['mesaj']?.toString() ?? '');
+                    }
+                  },
+                  itemBuilder: (_) => const [
+                    PopupMenuItem(value: 'kapsam', child: Text('Çiftliği değiştir')),
+                    PopupMenuItem(value: 'kaldir', child: Text('Yetkiyi kaldır')),
+                  ],
+                ),
+              ),
+            const SizedBox(height: 6),
+            OutlinedButton.icon(
+              onPressed: () => _sorumluAta(v),
+              icon: const Icon(Icons.person_add_alt),
+              label: const Text('Çiftlik Sorumlusu ata'),
+            ),
+          ],
+        ),
+      );
+
   Widget _satir(EkipUyesi x, {required bool ustYonetim, required bool benim}) {
     final secili = _secili.contains(x.telefon);
     return CheckboxListTile(
@@ -180,10 +329,20 @@ class _EkipSayfasiState extends State<EkipSayfasi> {
                           }
                           if (s == 'gorev') _gorevlendir(l, v.formenler, haric: ust ? null : v.kisi.telefon);
                           if (s == 'cikar') _cikar(l);
+                          if (s == 'erisim') _kullanici(seciliListe, 'kapat');
+                          if (s == 'program') _kullanici(seciliListe, 'cikar');
                         },
-                        itemBuilder: (_) => const [
-                          PopupMenuItem(value: 'gorev', child: Text('Formene görevlendir')),
-                          PopupMenuItem(value: 'cikar', child: Text('Ekipten çıkar')),
+                        itemBuilder: (_) => [
+                          const PopupMenuItem(value: 'gorev', child: Text('Formene görevlendir')),
+                          const PopupMenuItem(value: 'cikar', child: Text('Ekipten çıkar')),
+                          if (v.kisi.yonetici) ...[
+                            const PopupMenuDivider(),
+                            const PopupMenuItem(value: 'erisim', child: Text('Uygulama erişimini kapat')),
+                            const PopupMenuItem(
+                              value: 'program',
+                              child: Text('Programdan çıkar', style: TextStyle(color: Renk.kirmizi)),
+                            ),
+                          ],
                         ],
                         child: const Chip(
                           avatar: Icon(Icons.swap_horiz, size: 18),
@@ -203,6 +362,7 @@ class _EkipSayfasiState extends State<EkipSayfasi> {
             label: const Text('İş Emri Ver', style: TextStyle(fontSize: 17)),
           ),
           const SizedBox(height: 12),
+          if (v.kisi.yonetici) _sorumluPaneli(v),
           Panel(
             baslik: ust ? 'Formenlere göre personel dağılımı' : 'Ekip durumu',
             child: Wrap(

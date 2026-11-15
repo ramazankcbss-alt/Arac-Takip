@@ -120,6 +120,7 @@ function doPost(e) {
       case 'talepAc': return json_(talepAc_(k, g));
       case 'talepDurum': return json_(talepDurum_(k, g));
       case 'kullaniciIslem': return json_(kullaniciIslem_(k, g));
+      case 'ciftlikSorumlusuAta': return json_(ciftlikSorumlusuAta_(k, g));
       case 'isEmriDurum': return json_(isEmriDurum_(k, g));
       default: return json_({ ok: false, hata: 'Bilinmeyen işlem: ' + g.tur });
     }
@@ -601,7 +602,16 @@ function veri_(k) {
     o.ekibim = ek.ekibim;
     o.atanabilir = ek.atanabilir;
     o.formenler = ek.formenler;
-    if (yoneticiMi_(k)) o.kullanicilar = kullanicilar_();
+    if (yoneticiMi_(k)) {
+      o.kullanicilar = kullanicilar_();
+      o.ciftlikSorumlulari = rollerSatirlari_().filter(function (r) {
+        return buyuk_(r[2]).indexOf('ÇİFTLİK SORUMLUSU') >= 0;
+      }).map(function (r) { return { telefon: tel_(r[0]), ad: r[1], ciftlik: r[3] || 'Tümü' }; });
+      var plTum = personeller_();
+      o.personelTum = Object.keys(plTum).map(function (t) {
+        return { telefon: t, ad: plTum[t].ad, gorev: plTum[t].gorev, ciftlik: plTum[t].birim };
+      }).sort(function (a, b) { return a.ad.localeCompare(b.ad, 'tr'); });
+    }
     o.verdigimEmirler = isEmirleri_().filter(function (e) {
       return (e.formen === k.telefon || ustYetki_(k, e.ciftlik)) && gunFarki_(e.tarih) <= 3 && gunFarki_(e.tarih) >= -2;
     }).reverse().slice(0, 150);
@@ -1070,6 +1080,26 @@ function kullanicilar_() {
   return l.sort(function (a, b) { return String(a.ad).localeCompare(String(b.ad), 'tr'); });
 }
 
+/** Yönetici: Çiftlik Sorumlusu (beyaz yaka) atar, kapsamını değiştirir ya da kaldırır. */
+function ciftlikSorumlusuAta_(k, g) {
+  if (!yoneticiMi_(k)) return { ok: false, hata: 'Bu işlemi yalnız Yönetici yapar.' };
+  var hedef = tel_(g.telefon);
+  var p = personeller_()[hedef];
+  if (!p) return { ok: false, hata: 'Personel listesinde bulunamadı.' };
+  satirSil_('Roller', function (r) { return tel_(r[0]) === hedef && buyuk_(r[2]).indexOf('ÇİFTLİK SORUMLUSU') >= 0; });
+  var kaldir = g.kaldir === true;
+  if (!kaldir) {
+    var ciftlik = bas_(g.ciftlik) || 'Tümü';
+    ekle_('Roller', [hedef, p.ad, ROL_CIFTLIK, ciftlik, (p.gorev ? p.gorev + ' – ' : '') + 'Atayan: ' + k.ad + ', ' + simdi_()]);
+    bildir_([hedef], 'Görevlendirme', 'Çiftlik Sorumlusu görevlendirmesi',
+      'Araç Takip uygulamasında ' + (ciftlik === 'Tümü' ? 'tüm çiftlikler' : ciftlik) +
+      ' için Çiftlik Sorumlusu olarak yetkilendirildiniz. Atayan: ' + k.ad);
+  }
+  ROLLER_ = null;
+  CacheService.getScriptCache().remove('personel_tum');
+  return { ok: true, mesaj: kaldir ? p.ad + ' için Çiftlik Sorumlusu yetkisi kaldırıldı.' : p.ad + ' Çiftlik Sorumlusu olarak atandı.' };
+}
+
 function satirSil_(ad, kosul) {
   var t = tablo_(ad);
   for (var i = t.rows.length - 1; i >= 0; i--) if (kosul(t.rows[i])) t.sh.deleteRow(i + 2);
@@ -1083,6 +1113,16 @@ function satirSil_(ad, kosul) {
  */
 function kullaniciIslem_(k, g) {
   if (!yoneticiMi_(k)) return { ok: false, hata: 'Bu işlemi yalnız Yönetici yapar.' };
+  if (Array.isArray(g.telefonlar)) {
+    var tamam = 0, hatalar = [];
+    g.telefonlar.forEach(function (t) {
+      var r = kullaniciIslem_(k, { telefon: t, islem: g.islem });
+      if (r.ok) tamam++; else hatalar.push(r.hata);
+    });
+    var ad = { kapat: 'erişimi kapatıldı', cikar: 'programdan çıkarıldı', geriAl: 'erişimi yeniden açıldı' }[bas_(g.islem)] || 'işlendi';
+    if (!tamam) return { ok: false, hata: hatalar.join('\n') };
+    return { ok: true, mesaj: tamam + ' kişinin ' + ad + '.' + (hatalar.length ? '\n' + hatalar.join('\n') : '') };
+  }
   var hedef = tel_(g.telefon);
   if (!hedef) return { ok: false, hata: 'Telefon numarası geçersiz.' };
   if (hedef === k.telefon) return { ok: false, hata: 'Kendi erişiminizi kapatamazsınız.' };
@@ -1093,7 +1133,7 @@ function kullaniciIslem_(k, g) {
   var p = personeller_()[hedef];
   ad = ad || (p ? p.ad : hedef);
   if (islem === 'kapat') {
-    if (satir < 0) return { ok: false, hata: 'Bu kişinin uygulama kaydı yok.' };
+    if (satir < 0) return { ok: false, hata: ad + ': uygulama kaydı yok (henüz giriş yapmamış).' };
     hucre_('Cihazlar', satir, 'Durum', 'Erişim kapatıldı');
     hucre_('Cihazlar', satir, 'Oturum Anahtarı', '');
     hucre_('Cihazlar', satir, 'Bildirim Anahtarı', '');
