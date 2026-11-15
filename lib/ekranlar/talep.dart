@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../servis/api.dart';
@@ -9,6 +10,28 @@ import '../tema.dart';
 import '../veri/model.dart';
 import 'araclar.dart';
 import 'bilesen.dart';
+
+/// Talebi kurumsal bir metin olarak paylaşır (Google Chat satınalma grubu, WhatsApp, e-posta).
+/// Kayıt uygulamada tutulur; paylaşım bilgilendirme içindir.
+String talepMetni(Talep t) {
+  final a = t.arac.isEmpty ? null : Depo.ben.veri?.arac(t.arac);
+  return [
+    'MALZEME / PARÇA TALEBİ – ${t.no}',
+    if (a != null)
+      'Araç: ${a.no} · ${[a.tur, a.model].where((x) => x.isNotEmpty).join(' ')}'
+          '${a.plaka.isEmpty ? '' : ' · ${a.plaka}'}',
+    'Talep türü: ${t.tur}',
+    if (t.malzeme.isNotEmpty) 'Parça / malzeme: ${t.malzeme}${t.miktar.isEmpty ? '' : ' (${t.miktar})'}',
+    if (t.aciklama.isNotEmpty) 'Açıklama: ${t.aciklama}',
+    'Çiftlik: ${t.ciftlik}',
+    'Talep eden: ${t.talepEden} · ${t.tarih}',
+    'Durum: ${t.durum}',
+    for (var i = 0; i < t.fotolar.length; i++) 'Fotoğraf ${i + 1}: ${t.fotolar[i]}',
+    'Bilgilerinize sunarım. (Araç Takip kaydı)',
+  ].join('\n');
+}
+
+Future<void> talepPaylas(Talep t) => Share.share(talepMetni(t), subject: 'Malzeme / parça talebi ${t.no}');
 
 /// Kırılan / değişecek parça, alınacak malzeme ve bakım ihtiyacı talebi.
 /// Formen ve personel açar; bakım-onarım ekibine anlık bildirim gider.
@@ -47,7 +70,28 @@ class _TalepFormuState extends State<TalepFormu> {
         if (_fotolar.isNotEmpty) 'fotolar': _fotolar.map(base64Encode).toList(),
       },
     }, basari: 'Talep bakım-onarım ekibine iletildi.');
-    if (j != null && mounted) Navigator.pop(context);
+    if (j == null || !mounted) return;
+    final no = j['no']?.toString() ?? '';
+    final t = Depo.ben.veri?.talepler.where((x) => x.no == no).firstOrNull;
+    if (t != null) {
+      final paylas = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Talep kaydedildi'),
+          content: const Text('Talebi satınalma grubuyla (Google Chat) da paylaşmak ister misiniz?'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hayır')),
+            FilledButton.icon(
+              onPressed: () => Navigator.pop(ctx, true),
+              icon: const Icon(Icons.share),
+              label: const Text('Paylaş'),
+            ),
+          ],
+        ),
+      );
+      if (paylas == true) await talepPaylas(t);
+    }
+    if (mounted) Navigator.pop(context);
   }
 
   @override
@@ -201,11 +245,16 @@ class TalepKarti extends StatelessWidget {
                   ),
               ],
             ),
-          if (ekip && !t.kapali)
-            Wrap(
-              alignment: WrapAlignment.end,
-              spacing: 6,
-              children: [
+          Wrap(
+            alignment: WrapAlignment.end,
+            spacing: 6,
+            children: [
+              TextButton.icon(
+                onPressed: () => talepPaylas(t),
+                icon: const Icon(Icons.share, size: 18),
+                label: const Text('Paylaş'),
+              ),
+              if (ekip && !t.kapali) ...[
                 if (t.arac.isNotEmpty)
                   TextButton.icon(
                     onPressed: () => Navigator.push(
@@ -215,7 +264,8 @@ class TalepKarti extends StatelessWidget {
                   ),
                 FilledButton.tonal(onPressed: () => _durum(context), child: const Text('Durum güncelle')),
               ],
-            ),
+            ],
+          ),
         ],
       ),
     );

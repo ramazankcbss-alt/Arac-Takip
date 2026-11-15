@@ -20,6 +20,7 @@ dependencies:
   workmanager: ^0.10.0
   flutter_local_notifications: ^19.4.0
   firebase_core: any
+  share_plus: ^10.1.4
   firebase_messaging: any
 
 dev_dependencies:

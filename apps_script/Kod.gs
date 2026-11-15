@@ -1112,7 +1112,10 @@ function satirSil_(ad, kosul) {
  *        'geriAl' → kapatılan erişim açılır ya da çıkarılan kişi yeniden giriş yapabilir hale gelir.
  */
 function kullaniciIslem_(k, g) {
-  if (!yoneticiMi_(k)) return { ok: false, hata: 'Bu işlemi yalnız Yönetici yapar.' };
+  // Formen (ve Çiftlik Sorumlusu) yalnız 'cikar' yapabilir: araç-makine işiyle ilgisi olmayan,
+  // kendi ekibindeki ya da çiftliğinde ekibe bağlı olmayan personeli programdan çıkarır.
+  var formenCikarir = !yoneticiMi_(k) && yetki_(k, 'formen') && bas_(g.islem) === 'cikar';
+  if (!yoneticiMi_(k) && !formenCikarir) return { ok: false, hata: 'Bu işlemi yalnız Yönetici yapar.' };
   if (Array.isArray(g.telefonlar)) {
     var tamam = 0, hatalar = [];
     g.telefonlar.forEach(function (t) {
@@ -1126,6 +1129,18 @@ function kullaniciIslem_(k, g) {
   var hedef = tel_(g.telefon);
   if (!hedef) return { ok: false, hata: 'Telefon numarası geçersiz.' };
   if (hedef === k.telefon) return { ok: false, hata: 'Kendi erişiminizi kapatamazsınız.' };
+  if (formenCikarir) {
+    var hp = personeller_()[hedef];
+    var hr = roller_(hedef, hp);
+    if (!hp) return { ok: false, hata: hedef + ': personel listesinde yok.' };
+    if (hr.roller.some(function (x) { return [ROL_FORMEN, ROL_YONETICI, ROL_CIFTLIK, ROL_SORUMLU].indexOf(x) >= 0; })) {
+      return { ok: false, hata: hp.ad + ': formen ve yönetim rollerini yalnız Yönetici çıkarır.' };
+    }
+    if (!sorumlu_(k, hedef, hr.ciftlik)) return { ok: false, hata: hp.ad + ' sizin ekibinizde ya da çiftliğinizde değil.' };
+    bildir_(rolTelefonlari_([ROL_YONETICI], ''), 'Görevlendirme', 'Personel programdan çıkarıldı',
+      hp.ad + ' (' + hp.gorev + ', ' + hr.ciftlik + ') araç-makine işleriyle ilgisi olmadığı gerekçesiyle ' + k.ad +
+      ' tarafından programdan çıkarıldı. Gerekirse Kullanıcılar ekranından geri alabilirsiniz.');
+  }
   var islem = bas_(g.islem);
   var cih = tablo_('Cihazlar');
   var satir = -1, ad = '';

@@ -147,3 +147,12 @@ Erişim kapatıldı, Programdan çıkarıldı). İşlemler:
   ve Makine-Ekipman Sorumlusu. Tüm çiftliklerin arızalarını, bakım uyarılarını ve taleplerini görür; talep
   durumunu (Değerlendiriliyor, Satınalmada, Tedarik edildi, Tamamlandı, İptal) günceller, talepten bakım kaydı girer.
   Talep eden ve çiftlik formeni her durum değişikliğinde bilgilendirilir.
+
+## Formenin personel çıkarması ve talebin paylaşılması
+
+- Formen (ve Çiftlik Sorumlusu) Ekipler ekranında araç-makine işleriyle ilgisi olmayan personeli
+  **Programdan çıkar (araç işi yapmıyor)** ile çıkarabilir: yalnız kendi ekibindeki ya da çiftliğinde ekibe
+  bağlı olmayan personel; formen ve yönetim rolleri hariç. Yöneticiye bildirim gider; geri alma Yöneticidedir.
+- Malzeme / parça talebi kaydedildikten sonra **Paylaş** ile kurumsal metin olarak Google Chat satınalma
+  grubuna (ya da WhatsApp / e-posta) gönderilebilir. Kayıt uygulamada tutulur; günlük mutabakat kontrolü
+  Chat'teki satınalma yazışmalarını uygulama kayıtlarıyla karşılaştırır.

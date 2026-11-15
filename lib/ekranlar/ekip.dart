@@ -111,7 +111,7 @@ class _EkipSayfasiState extends State<EkipSayfasi> {
         content: Text(cikar
             ? '${telefonlar.length} kişi programdan tamamen çıkarılacak: uygulamaya giremez, ekip ve iş emri '
                 'listelerinde görünmez; cihaz, ekip ve rol kayıtları silinir. Geçmiş kullanım, arıza ve iş emri '
-                'kayıtları korunur. Kullanıcılar ekranından geri alınabilir.'
+                'kayıtları korunur. ${Depo.ben.veri!.kisi.yonetici ? 'Kullanıcılar ekranından geri alınabilir.' : 'Yöneticiye bildirim gider; geri alma Yöneticidedir.'}'
             : '${telefonlar.length} kişi uygulamaya giremeyecek. Ekibi, rolü ve kayıtları korunur; '
                 'Kullanıcılar ekranından yeniden açılabilir.'),
         actions: [
@@ -313,42 +313,46 @@ class _EkipSayfasiState extends State<EkipSayfasi> {
                           style: const TextStyle(fontWeight: FontWeight.w700)),
                     ),
                     TextButton(onPressed: () => setState(_secili.clear), child: const Text('Temizle')),
-                    if (!ust && seciliBosta.isNotEmpty && seciliBenim.isEmpty)
-                      FilledButton(
-                        onPressed: () =>
-                            _ata(seciliBosta, v.kisi.telefon, '${seciliBosta.length} personel ekibinize alındı.'),
-                        child: const Text('Ekibime al'),
-                      )
-                    else
-                      PopupMenuButton<String>(
-                        onSelected: (s) {
-                          final l = ust ? seciliListe : seciliBenim;
-                          if (l.isEmpty) {
-                            bildir(context, 'Yalnız kendi ekibinizdeki personeli görevlendirebilirsiniz.');
-                            return;
-                          }
-                          if (s == 'gorev') _gorevlendir(l, v.formenler, haric: ust ? null : v.kisi.telefon);
-                          if (s == 'cikar') _cikar(l);
-                          if (s == 'erisim') _kullanici(seciliListe, 'kapat');
-                          if (s == 'program') _kullanici(seciliListe, 'cikar');
-                        },
-                        itemBuilder: (_) => [
-                          const PopupMenuItem(value: 'gorev', child: Text('Formene görevlendir')),
-                          const PopupMenuItem(value: 'cikar', child: Text('Ekipten çıkar')),
-                          if (v.kisi.yonetici) ...[
-                            const PopupMenuDivider(),
-                            const PopupMenuItem(value: 'erisim', child: Text('Uygulama erişimini kapat')),
-                            const PopupMenuItem(
-                              value: 'program',
-                              child: Text('Programdan çıkar', style: TextStyle(color: Renk.kirmizi)),
-                            ),
-                          ],
-                        ],
-                        child: const Chip(
-                          avatar: Icon(Icons.swap_horiz, size: 18),
-                          label: Text('İşlem'),
+                    PopupMenuButton<String>(
+                      onSelected: (s) {
+                        if (s == 'al') {
+                          _ata(seciliBosta, v.kisi.telefon, '${seciliBosta.length} personel ekibinize alındı.');
+                          return;
+                        }
+                        if (s == 'erisim') {
+                          _kullanici(seciliListe, 'kapat');
+                          return;
+                        }
+                        if (s == 'program') {
+                          _kullanici(seciliListe, 'cikar');
+                          return;
+                        }
+                        final l = ust ? seciliListe : seciliBenim;
+                        if (l.isEmpty) {
+                          bildir(context, 'Yalnız kendi ekibinizdeki personeli görevlendirebilirsiniz.');
+                          return;
+                        }
+                        if (s == 'gorev') _gorevlendir(l, v.formenler, haric: ust ? null : v.kisi.telefon);
+                        if (s == 'cikar') _cikar(l);
+                      },
+                      itemBuilder: (_) => [
+                        if (!ust && seciliBosta.isNotEmpty) const PopupMenuItem(value: 'al', child: Text('Ekibime al')),
+                        const PopupMenuItem(value: 'gorev', child: Text('Formene görevlendir')),
+                        const PopupMenuItem(value: 'cikar', child: Text('Ekipten çıkar')),
+                        const PopupMenuDivider(),
+                        if (v.kisi.yonetici)
+                          const PopupMenuItem(value: 'erisim', child: Text('Uygulama erişimini kapat')),
+                        PopupMenuItem(
+                          value: 'program',
+                          child: Text(v.kisi.yonetici ? 'Programdan çıkar' : 'Programdan çıkar (araç işi yapmıyor)',
+                              style: const TextStyle(color: Renk.kirmizi)),
                         ),
+                      ],
+                      child: const Chip(
+                        avatar: Icon(Icons.swap_horiz, size: 18),
+                        label: Text('İşlem'),
                       ),
+                    ),
                   ],
                 ),
               ),
