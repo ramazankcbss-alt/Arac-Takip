@@ -151,9 +151,12 @@ class _OnayBekleniyorEkraniState extends State<OnayBekleniyorEkrani> {
           Text(
             reddedildi
                 ? 'Formeninizle görüşün.'
-                : 'Sayın ${d.kisi?.ad ?? ''}, telefonunuzun formeniniz ya da Makine-Ekipman '
-                    'Sorumlusu tarafından onaylanması gerekiyor. Onaylandıktan sonra '
-                    'aşağıdaki düğmeye basın.',
+                : (d.kisi?.izleyici ?? false)
+                    ? 'Sayın ${d.kisi?.ad ?? ''}, izleme erişimi için telefonunuzun Yönetici tarafından '
+                        'onaylanması gerekiyor. Onaylandıktan sonra aşağıdaki düğmeye basın.'
+                    : 'Sayın ${d.kisi?.ad ?? ''}, telefonunuzun formeniniz ya da Makine-Ekipman '
+                        'Sorumlusu tarafından onaylanması gerekiyor. Onaylandıktan sonra '
+                        'aşağıdaki düğmeye basın.',
             textAlign: TextAlign.center,
             style: const TextStyle(color: Renk.soluk),
           ),

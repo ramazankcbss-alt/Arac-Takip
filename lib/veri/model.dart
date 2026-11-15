@@ -10,6 +10,7 @@ const sinifArac = 'Araç';
 const sinifEkipman = 'Makine-Ekipman';
 
 const rolYonetici = 'Yönetici';
+const rolIzleyici = 'İzleyici';
 const rolFormen = 'Formen';
 const rolSorumlu = 'Makine-Ekipman Sorumlusu';
 const rolBakim = 'Bakım-Onarım';
@@ -28,6 +29,8 @@ class Kisi {
   bool get yonetici => roller.contains(rolYonetici);
   bool get formen => yonetici || roller.contains(rolFormen);
   bool get sorumlu => yonetici || roller.contains(rolSorumlu) || roller.contains(rolBakim);
+  /// Araç-makine kullanmayan kadro (müdür, uzman, veteriner, raporlama): izler, işlem yapmaz.
+  bool get izleyici => roller.contains(rolIzleyici) && !formen && !sorumlu;
 
   String get rolMetni {
     if (roller.isEmpty) return 'Operatör';
@@ -254,6 +257,7 @@ class Veri {
         bakimUyari = _liste(j['bakimUyari']).map(BakimUyari.new).toList(),
         plan = _liste(j['plan']).map(Plan.new).toList(),
         bakimKayit = _liste(j['bakimKayit']).map(BakimKaydi.new).toList(),
+        izlemeEmirleri = _liste(j['izlemeEmirleri']).map(IsEmri.new).toList(),
         isEmirlerim = _liste(j['isEmirlerim']).map(IsEmri.new).toList(),
         verdigimEmirler = _liste(j['verdigimEmirler']).map(IsEmri.new).toList(),
         yerler = _liste(j['yerler']).map(YerOnerisi.new).toList(),
@@ -275,7 +279,7 @@ class Veri {
   final List<BakimKaydi> bakimKayit;
   final List<String> ciftlikler;
   final List<EkipUyesi> ekibim, atanabilir;
-  final List<IsEmri> isEmirlerim, verdigimEmirler;
+  final List<IsEmri> isEmirlerim, verdigimEmirler, izlemeEmirleri;
   final List<YerOnerisi> yerler;
   final List<Formen> formenler;
 

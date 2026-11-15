@@ -87,3 +87,16 @@ kurulu uygulamalar güncellemeyi kendileri alır.
   hazır seçili gelir. Araç gerektirmeyen işte personel **Tamamlandı** bildirir; formene bildirim gider.
 - Araçlı işte kullanım kaydı bitince iş emri kendiliğinden tamamlanır. Personel farklı araç seçerse kayda not düşülür.
 - Kayıtlar **İş_Emirleri** sayfasında tutulur.
+
+## Kadrolar ve izleme erişimi
+
+- **Araç-makine kadrosu** (Personel_Listesi → Görev): çiftlik personeli, işletme operatörü, formen,
+  bakım-onarım personeli ve ustası. Araç kullanır, iş emri alır, ekiplere bağlanır.
+- **İzleme kadrosu**: müdür, müdür yardımcısı, uzman, veteriner, veteriner sağlık teknikeri, zooteknist,
+  kalite kontrol, raporlama, mühendis, güvenlik. Uygulamaya girer; **Genel Durum** (aktif kullanım,
+  iş emirleri, açık arızalar), **Araçlar** ve **Arızalar** ekranlarını görür, arıza bildirir; işlem yapamaz.
+  Çiftliğe bağlı olanlar kendi çiftliğini, direktörlük/müdürlük kadrosu tüm çiftlikleri görür.
+  Cihazlarını yalnız Yönetici onaylar; ekip ve iş emri listelerinde görünmezler.
+- Yönetmek isteyen kişiye Roller sayfasından rol verilir: `Formen`, `Makine-Ekipman Sorumlusu`,
+  `Bakım-Onarım` ya da `Yönetici` (çiftlik sütunu: çiftlik adı ya da `Tümü`). Araç kullanacaksa `Personel`.
+- Roller sayfasında `Hariç` yazılan kişi uygulamaya hiç giremez.

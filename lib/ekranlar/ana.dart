@@ -9,6 +9,7 @@ import 'arizalar.dart';
 import 'bildirimler.dart';
 import 'ekip.dart';
 import 'islerim.dart';
+import 'izleme.dart';
 import 'onay.dart';
 
 class AnaEkran extends StatefulWidget {
@@ -53,7 +54,10 @@ class _AnaEkranState extends State<AnaEkran> with WidgetsBindingObserver {
         final v = d.veri;
         final k = v?.kisi ?? d.kisi;
         final sekmeler = <({String ad, IconData ikon, Widget sayfa, int rozet})>[
-          (ad: 'İşlerim', ikon: Icons.assignment_outlined, sayfa: const IslerimSayfasi(), rozet: 0),
+          if ((k?.izleyici ?? false) || (k?.yonetici ?? false))
+            (ad: 'Genel Durum', ikon: Icons.dashboard_outlined, sayfa: const IzlemeSayfasi(), rozet: 0)
+          else
+            (ad: 'İşlerim', ikon: Icons.assignment_outlined, sayfa: const IslerimSayfasi(), rozet: 0),
           if (k?.formen ?? false)
             (
               ad: 'Günlük Onay',
@@ -69,14 +73,14 @@ class _AnaEkranState extends State<AnaEkran> with WidgetsBindingObserver {
               sayfa: const EkipSayfasi(),
               rozet: 0,
             ),
-          if ((k?.sorumlu ?? false) || (k?.formen ?? false))
+          if ((k?.sorumlu ?? false) || (k?.formen ?? false) || (k?.izleyici ?? false))
             (
               ad: 'Araçlar',
               ikon: Icons.agriculture_outlined,
               sayfa: const AraclarSayfasi(),
               rozet: v?.bakimUyari.where((b) => b.gecikti).length ?? 0,
             ),
-          if ((k?.sorumlu ?? false) || (k?.formen ?? false))
+          if ((k?.sorumlu ?? false) || (k?.formen ?? false) || (k?.izleyici ?? false))
             (
               ad: 'Arızalar',
               ikon: Icons.build_circle_outlined,
