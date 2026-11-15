@@ -487,11 +487,15 @@ class _DuzenleFormuState extends State<_DuzenleFormu> {
             'ciftlik': _ciftlik == widget.x.ciftlik && !widget.x.kademeOzel ? '' : _ciftlik,
             'kapsam': _kapsam.toList(),
           };
-    final j = await islem(context, 'orgDuzenle', alan);
+    // Kayıttan sonra form hemen kapanır; liste arka planda yenilenir.
+    final j = await islem(context, 'orgDuzenle', alan, yenile: false);
     if (j == null || !mounted) return;
     final uyari = j['uyari']?.toString() ?? '';
+    final mesaj = [j['mesaj']?.toString() ?? 'Kaydedildi.', if (uyari.isNotEmpty) uyari].join('\n');
+    final m = ScaffoldMessenger.of(context);
     Navigator.pop(context, true);
-    bildir(context, [j['mesaj']?.toString() ?? 'Kaydedildi.', if (uyari.isNotEmpty) uyari].join('\n'));
+    m.showSnackBar(SnackBar(content: Text(mesaj)));
+    Depo.ben.yenile();
   }
 
   @override

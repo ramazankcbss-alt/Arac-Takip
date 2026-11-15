@@ -25,13 +25,19 @@ class _EkipSayfasiState extends State<EkipSayfasi> {
   String? _formenFiltre; // formen telefonu ya da _bosta
   final _secili = <String>{};
 
+  /// Kişinin bağlı olduğu amir: önce formen (ekip), yoksa organizasyon şemasındaki amir.
+  Map<String, OrgKisi> _org = const {};
+  String _amir(EkipUyesi x) => x.formen.isNotEmpty ? x.formen : (_org[x.telefon]?.ust ?? '');
+  String _amirAd(EkipUyesi x) => x.formen.isNotEmpty ? x.formenAd : (_org[x.telefon]?.ustAd ?? '');
+
   bool _uyar(EkipUyesi x) {
     if (_formenFiltre != null) {
-      if (_formenFiltre == _bosta ? x.formen.isNotEmpty : x.formen != _formenFiltre) return false;
+      final a = _amir(x);
+      if (_formenFiltre == _bosta ? a.isNotEmpty : a != _formenFiltre) return false;
     }
     if (_ara.isEmpty) return true;
     final a = _ara.toLowerCase();
-    return '${x.ad} ${x.gorev} ${x.ciftlik} ${x.formenAd}'.toLowerCase().contains(a);
+    return '${x.ad} ${x.gorev} ${x.ciftlik} ${_amirAd(x)}'.toLowerCase().contains(a);
   }
 
   Future<Formen?> _formenSec(List<Formen> l, {String? haric, required String baslik}) {
@@ -80,10 +86,85 @@ class _EkipSayfasiState extends State<EkipSayfasi> {
   }
 
   Future<void> _gorevlendir(List<String> telefonlar, List<Formen> formenler, {String? haric}) async {
+    final v = Depo.ben.veri!;
+    if (v.kisi.yonetici && v.organizasyon.isNotEmpty) return _amireBagla(v, telefonlar);
     final f = await _formenSec(formenler,
         haric: haric, baslik: '${telefonlar.length} personel · görevlendirilecek formen');
     if (f == null || !mounted) return;
     await _ata(telefonlar, f.telefon, '${telefonlar.length} personel ${f.ad} ekibine görevlendirildi.');
+  }
+
+  /// Yönetici: personeli bir amire bağlar. Amir formen ise ekibine görevlendirilir;
+  /// formen değilse (ör. sorumlu veteriner hekim) organizasyon şemasında ona bağlanır.
+  Future<void> _amireBagla(Veri v, List<String> telefonlar) async {
+    var ara = '';
+    final secenek = v.organizasyon.where((p) => !telefonlar.contains(p.telefon) && p.kademe != 'Saha Personeli').toList()
+      ..sort((a, b) {
+        final fa = a.kademe == 'Formen' ? 0 : 1, fb = b.kademe == 'Formen' ? 0 : 1;
+        return fa != fb ? fa - fb : a.ad.compareTo(b.ad);
+      });
+    final amir = await showModalBottomSheet<OrgKisi>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, ss) {
+          final l = secenek
+              .where((p) => ara.isEmpty || '${p.ad} ${p.gorev} ${p.grup}'.toLowerCase().contains(ara))
+              .toList();
+          return SafeArea(
+            child: SizedBox(
+              height: MediaQuery.of(ctx).size.height * 0.8,
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+                    child: Text('${telefonlar.length} personel · bağlanacağı amir',
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                    child: TextField(
+                      decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: 'Amir ara'),
+                      onChanged: (x) => ss(() => ara = x.trim().toLowerCase()),
+                    ),
+                  ),
+                  Expanded(
+                    child: ListView(
+                      children: [
+                        for (final p in l)
+                          ListTile(
+                            leading: Icon(p.kademe == 'Formen' ? Icons.engineering_outlined : Icons.badge_outlined,
+                                color: p.kademe == 'Formen' ? Renk.yesil : Renk.mavi),
+                            title: Text(p.ad),
+                            subtitle: Text('${p.gorev} · ${p.grup}'),
+                            onTap: () => Navigator.pop(ctx, p),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+    if (amir == null || !mounted) return;
+    if (amir.kademe == 'Formen') {
+      await _ata(telefonlar, amir.telefon, '${telefonlar.length} personel ${amir.ad} ekibine görevlendirildi.');
+      return;
+    }
+    var tamam = 0;
+    for (final t in telefonlar) {
+      final kademe = _org[t]?.kademe ?? 'Saha Personeli';
+      final j = await islem(context, 'orgDuzenle', {'telefon': t, 'kademe': kademe, 'ust': amir.telefon}, yenile: false);
+      if (!mounted) return;
+      if (j == null) break;
+      tamam++;
+    }
+    setState(_secili.clear);
+    if (tamam > 0) bildir(context, '$tamam personel ${amir.ad} kişisine bağlandı.');
+    await Depo.ben.yenile();
   }
 
   Future<void> _cikar(List<String> telefonlar) async {
@@ -207,93 +288,135 @@ class _EkipSayfasiState extends State<EkipSayfasi> {
     if (j != null && mounted) bildir(context, j['mesaj']?.toString() ?? 'Atandı.');
   }
 
+  /// Yönetici: Çiftlik Sorumluları (kapalı başlayan bölüm).
   Widget _sorumluPaneli(Veri v) => Panel(
-        baslik: 'Çiftlik Sorumluları',
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const Text(
-              'Kapsamındaki çiftliklerde personeli formenlere görevlendirir, iş emri verir ve günlük kayıtları onaylar.',
-              style: TextStyle(color: Renk.soluk, fontSize: 12),
-            ),
-            for (final c in v.ciftlikSorumlulari)
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.badge_outlined),
-                title: Text(c.ad),
-                subtitle: Text(c.ciftlik == 'Tümü' ? 'Tüm çiftlikler' : c.ciftlik),
-                trailing: PopupMenuButton<String>(
-                  onSelected: (x) async {
-                    if (x == 'kapsam') {
-                      final yeni = await _ciftlikSec(v.ciftlikler, '${c.ad} · sorumlu olacağı çiftlik');
-                      if (yeni == null || !mounted) return;
-                      final j = await islem(context, 'ciftlikSorumlusuAta', {'telefon': c.telefon, 'ciftlik': yeni});
-                      if (j != null && mounted) bildir(context, j['mesaj']?.toString() ?? '');
-                    }
-                    if (x == 'kaldir') {
-                      final j = await islem(context, 'ciftlikSorumlusuAta', {'telefon': c.telefon, 'kaldir': true});
-                      if (j != null && mounted) bildir(context, j['mesaj']?.toString() ?? '');
-                    }
-                  },
-                  itemBuilder: (_) => const [
-                    PopupMenuItem(value: 'kapsam', child: Text('Çiftliği değiştir')),
-                    PopupMenuItem(value: 'kaldir', child: Text('Yetkiyi kaldır')),
-                  ],
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        child: Theme(
+          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+          child: ExpansionTile(
+            tilePadding: const EdgeInsets.symmetric(horizontal: 8),
+            leading: const Icon(Icons.badge_outlined, color: Renk.mavi),
+            title: Text('Çiftlik Sorumluları (${v.ciftlikSorumlulari.length})',
+                style: const TextStyle(fontWeight: FontWeight.w700)),
+            subtitle: const Text('Personel görevlendirme, iş emri ve günlük onay yetkisi',
+                style: TextStyle(fontSize: 12, color: Renk.soluk)),
+            childrenPadding: const EdgeInsets.fromLTRB(8, 0, 8, 10),
+            children: [
+              for (final c in v.ciftlikSorumlulari)
+                ListTile(
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  leading: _Bas(c.ad, renk: Renk.mavi),
+                  title: Text(c.ad, style: const TextStyle(fontWeight: FontWeight.w600)),
+                  subtitle: Text(c.ciftlik == 'Tümü' ? 'Tüm çiftlikler' : c.ciftlik),
+                  trailing: PopupMenuButton<String>(
+                    onSelected: (x) async {
+                      if (x == 'kapsam') {
+                        final yeni = await _ciftlikSec(v.ciftlikler, '${c.ad} · sorumlu olacağı çiftlik');
+                        if (yeni == null || !mounted) return;
+                        final j = await islem(context, 'ciftlikSorumlusuAta', {'telefon': c.telefon, 'ciftlik': yeni});
+                        if (j != null && mounted) bildir(context, j['mesaj']?.toString() ?? '');
+                      }
+                      if (x == 'kaldir') {
+                        final j = await islem(context, 'ciftlikSorumlusuAta', {'telefon': c.telefon, 'kaldir': true});
+                        if (j != null && mounted) bildir(context, j['mesaj']?.toString() ?? '');
+                      }
+                    },
+                    itemBuilder: (_) => const [
+                      PopupMenuItem(value: 'kapsam', child: Text('Çiftliği değiştir')),
+                      PopupMenuItem(value: 'kaldir', child: Text('Yetkiyi kaldır')),
+                    ],
+                  ),
+                ),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: () => _sorumluAta(v),
+                  icon: const Icon(Icons.person_add_alt, size: 18),
+                  label: const Text('Çiftlik Sorumlusu ata'),
                 ),
               ),
-            const SizedBox(height: 6),
-            OutlinedButton.icon(
-              onPressed: () => _sorumluAta(v),
-              icon: const Icon(Icons.person_add_alt),
-              label: const Text('Çiftlik Sorumlusu ata'),
-            ),
-          ],
+            ],
+          ),
         ),
       );
 
   Widget _satir(EkipUyesi x, {required bool ustYonetim, required bool benim}) {
     final secili = _secili.contains(x.telefon);
-    return CheckboxListTile(
-      contentPadding: EdgeInsets.zero,
-      controlAffinity: ListTileControlAffinity.leading,
-      value: secili,
-      onChanged: (s) => setState(() => s == true ? _secili.add(x.telefon) : _secili.remove(x.telefon)),
-      title: Text(x.ad),
-      subtitle: Text([
-        x.gorev,
-        x.ciftlik,
-        if (ustYonetim) x.formenAd.isEmpty ? 'Formene bağlı değil' : 'Formen: ${x.formenAd}',
-      ].where((s) => s.isNotEmpty).join(' · ')),
-      secondary: benim
-          ? IconButton(
-              tooltip: 'İş emri ver',
-              icon: const Icon(Icons.assignment_ind_outlined),
-              onPressed: () =>
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => IsEmriFormu(personel: x.telefon))),
-            )
-          : null,
+    final amirAd = _amirAd(x);
+    final amirFormen = x.formen.isNotEmpty;
+    final alt = [
+      x.gorev,
+      if (ustYonetim) x.ciftlik,
+      if (ustYonetim || !benim)
+        amirAd.isEmpty ? 'Amiri belirlenmemiş' : (amirFormen ? 'Formen: $amirAd' : 'Bağlı: $amirAd'),
+    ].where((s) => s.isNotEmpty).join(' · ');
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: () => setState(() => secili ? _secili.remove(x.telefon) : _secili.add(x.telefon)),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Row(
+          children: [
+            _Bas(x.ad, renk: secili ? Renk.ana : Renk.soluk, secili: secili),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(x.ad, maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                  Text(alt, maxLines: 1, overflow: TextOverflow.ellipsis,
+                      style: TextStyle(fontSize: 12.5, color: amirAd.isEmpty && ustYonetim ? Renk.amber : Renk.soluk)),
+                ],
+              ),
+            ),
+            if (benim)
+              IconButton(
+                tooltip: 'İş emri ver',
+                icon: const Icon(Icons.assignment_ind_outlined, color: Renk.ana),
+                onPressed: () =>
+                    Navigator.push(context, MaterialPageRoute(builder: (_) => IsEmriFormu(personel: x.telefon))),
+              ),
+          ],
+        ),
+      ),
     );
   }
+
+  Widget _filtre(String etiket, String? deger, {IconData? ikon}) => Padding(
+        padding: const EdgeInsets.only(right: 6),
+        child: ChoiceChip(
+          avatar: ikon == null ? null : Icon(ikon, size: 16),
+          label: Text(etiket),
+          selected: _formenFiltre == deger,
+          onSelected: (s) => setState(() => _formenFiltre = s ? deger : null),
+        ),
+      );
 
   @override
   Widget build(BuildContext context) {
     final v = Depo.ben.veri!;
     final ust = v.kisi.ustYonetim;
+    _org = {for (final o in v.organizasyon) o.telefon: o};
     final tum = [...v.ekibim, ...v.atanabilir];
-    // Formen bazında dağılım
+    // Amir (formen ya da şemadaki amir) bazında dağılım
     final dagilim = <String, int>{};
-    final formenAdi = {for (final f in v.formenler) f.telefon: f.ad};
+    final amirAdi = <String, String>{};
     var bosta = 0;
     for (final x in tum) {
-      if (x.formen.isEmpty) {
+      final a = _amir(x);
+      if (a.isEmpty) {
         bosta++;
       } else {
-        dagilim[x.formen] = (dagilim[x.formen] ?? 0) + 1;
-        formenAdi.putIfAbsent(x.formen, () => x.formenAd);
+        dagilim[a] = (dagilim[a] ?? 0) + 1;
+        amirAdi.putIfAbsent(a, () => _amirAd(x));
       }
     }
+    final amirler = dagilim.keys.toList()..sort((a, b) => (amirAdi[a] ?? '').compareTo(amirAdi[b] ?? ''));
     final ekibim = v.ekibim.where(_uyar).toList();
     final diger = v.atanabilir.where(_uyar).toList();
+    final liste = [...ekibim, ...diger];
     final seciliListe = _secili.toList();
     final seciliBenim = seciliListe.where((t) => v.ekibim.any((x) => x.telefon == t)).toList();
     final seciliBosta = seciliListe.where((t) => v.atanabilir.any((x) => x.telefon == t && x.formen.isEmpty)).toList();
@@ -304,7 +427,7 @@ class _EkipSayfasiState extends State<EkipSayfasi> {
           ? null
           : SafeArea(
               child: Container(
-                padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+                padding: const EdgeInsets.fromLTRB(16, 8, 12, 8),
                 decoration: const BoxDecoration(
                     color: Colors.white, border: Border(top: BorderSide(color: Renk.cizgi))),
                 child: Row(
@@ -338,7 +461,9 @@ class _EkipSayfasiState extends State<EkipSayfasi> {
                       },
                       itemBuilder: (_) => [
                         if (!ust && seciliBosta.isNotEmpty) const PopupMenuItem(value: 'al', child: Text('Ekibime al')),
-                        const PopupMenuItem(value: 'gorev', child: Text('Formene görevlendir')),
+                        PopupMenuItem(
+                            value: 'gorev',
+                            child: Text(v.kisi.yonetici ? 'Amire bağla / görevlendir' : 'Formene görevlendir')),
                         const PopupMenuItem(value: 'cikar', child: Text('Ekipten çıkar')),
                         const PopupMenuDivider(),
                         if (v.kisi.yonetici)
@@ -349,9 +474,17 @@ class _EkipSayfasiState extends State<EkipSayfasi> {
                               style: const TextStyle(color: Renk.kirmizi)),
                         ),
                       ],
-                      child: const Chip(
-                        avatar: Icon(Icons.swap_horiz, size: 18),
-                        label: Text('İşlem'),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        decoration: BoxDecoration(color: Renk.ana, borderRadius: BorderRadius.circular(20)),
+                        child: const Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.swap_horiz, size: 18, color: Colors.white),
+                            SizedBox(width: 6),
+                            Text('İşlem', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
+                          ],
+                        ),
                       ),
                     ),
                   ],
@@ -360,95 +493,113 @@ class _EkipSayfasiState extends State<EkipSayfasi> {
             ),
       body: YenilenirListe(
         children: [
-          FilledButton.icon(
-            style: FilledButton.styleFrom(minimumSize: const Size(64, 56)),
-            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const IsEmriFormu())),
-            icon: const Icon(Icons.assignment_ind_outlined),
-            label: const Text('İş Emri Ver', style: TextStyle(fontSize: 17)),
+          Row(
+            children: [
+              Expanded(
+                child: FilledButton.icon(
+                  style: FilledButton.styleFrom(minimumSize: const Size(64, 52)),
+                  onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const IsEmriFormu())),
+                  icon: const Icon(Icons.assignment_ind_outlined),
+                  label: const Text('İş Emri Ver', style: TextStyle(fontSize: 16)),
+                ),
+              ),
+              if (ust) ...[
+                const SizedBox(width: 10),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(minimumSize: const Size(64, 52)),
+                    onPressed: () =>
+                        Navigator.push(context, MaterialPageRoute(builder: (_) => const OrganizasyonEkrani())),
+                    icon: const Icon(Icons.account_tree_outlined),
+                    label: const Text('Organizasyon', style: TextStyle(fontSize: 16)),
+                  ),
+                ),
+              ],
+            ],
           ),
           const SizedBox(height: 12),
-          if (ust)
-            Panel(
-              child: ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.account_tree_outlined, color: Renk.ana, size: 32),
-                title: const Text('Organizasyon Şeması', style: TextStyle(fontWeight: FontWeight.w700)),
-                subtitle: Text(v.kisi.yonetici
-                    ? 'Tüm personel çiftlik ve kademe sırasıyla. Kim kimden sorumlu ve nereye bakacak: düzeltme yetkisi sizde.'
-                    : 'Tüm personel çiftlik ve kademe sırasıyla.'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const OrganizasyonEkrani())),
-              ),
-            ),
           if (v.kisi.yonetici) _sorumluPaneli(v),
           Panel(
-            baslik: ust ? 'Formenlere göre personel dağılımı' : 'Ekip durumu',
-            child: Wrap(
-              spacing: 6,
-              runSpacing: 6,
+            padding: const EdgeInsets.fromLTRB(12, 14, 12, 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                if (ust)
-                  for (final f in (dagilim.keys.toList()..sort((a, b) => (formenAdi[a] ?? '').compareTo(formenAdi[b] ?? ''))))
-                    ChoiceChip(
-                      label: Text('${formenAdi[f] ?? f} (${dagilim[f]})'),
-                      selected: _formenFiltre == f,
-                      onSelected: (s) => setState(() => _formenFiltre = s ? f : null),
-                    )
-                else
-                  ChoiceChip(
-                    label: Text('Ekibim (${v.ekibim.length})'),
-                    selected: _formenFiltre == v.kisi.telefon,
-                    onSelected: (s) => setState(() => _formenFiltre = s ? v.kisi.telefon : null),
-                  ),
-                ChoiceChip(
-                  avatar: const Icon(Icons.person_off_outlined, size: 18),
-                  label: Text('Formene bağlı olmayan ($bosta)'),
-                  selected: _formenFiltre == _bosta,
-                  onSelected: (s) => setState(() => _formenFiltre = s ? _bosta : null),
-                ),
-                if (ust)
-                  for (final f in v.formenler.where((f) => !dagilim.containsKey(f.telefon)))
-                    ChoiceChip(
-                      label: Text('${f.ad} (0)'),
-                      selected: false,
-                      onSelected: (_) {},
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(ust ? 'Personel (${liste.length})' : 'Ekip ve personel (${liste.length})',
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
                     ),
+                    TextButton(
+                      onPressed: liste.isEmpty
+                          ? null
+                          : () => setState(() => _secili.addAll(liste.map((x) => x.telefon))),
+                      child: const Text('Tümünü seç'),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                TextField(
+                  decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: 'Personel ara'),
+                  onChanged: (s) => setState(() => _ara = s.trim()),
+                ),
+                const SizedBox(height: 10),
+                SizedBox(
+                  height: 40,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    children: [
+                      _filtre('Tümü (${tum.length})', null),
+                      if (ust)
+                        for (final a in amirler) _filtre('${amirAdi[a] ?? a} (${dagilim[a]})', a)
+                      else
+                        _filtre('Ekibim (${v.ekibim.length})', v.kisi.telefon),
+                      _filtre('Amiri belirlenmemiş ($bosta)', _bosta, ikon: Icons.person_off_outlined),
+                    ],
+                  ),
+                ),
+                const Divider(height: 20),
+                if (liste.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 16),
+                    child: Text('Kayıt yok.', textAlign: TextAlign.center, style: TextStyle(color: Renk.soluk)),
+                  )
+                else ...[
+                  for (final x in ekibim) _satir(x, ustYonetim: false, benim: true),
+                  for (final x in diger) _satir(x, ustYonetim: ust, benim: false),
+                ],
               ],
             ),
           ),
-          TextField(
-            decoration: const InputDecoration(
-              prefixIcon: Icon(Icons.search),
-              hintText: 'Personel, görev ya da çiftlik ara',
-            ),
-            onChanged: (s) => setState(() => _ara = s.trim()),
-          ),
-          const SizedBox(height: 4),
-          Align(
-            alignment: Alignment.centerRight,
-            child: TextButton.icon(
-              icon: const Icon(Icons.select_all, size: 18),
-              label: const Text('Listelenenlerin tümünü seç'),
-              onPressed: () => setState(() => _secili.addAll([...ekibim, ...diger].map((x) => x.telefon))),
-            ),
-          ),
-          if (!ust && v.ekibim.isNotEmpty && (_formenFiltre == null || _formenFiltre == v.kisi.telefon))
-            Panel(
-              baslik: 'Ekibim (${v.ekibim.length})',
-              child: ekibim.isEmpty
-                  ? const Text('Kayıt yok.', style: TextStyle(color: Renk.soluk))
-                  : Column(children: [for (final x in ekibim) _satir(x, ustYonetim: false, benim: true)]),
-            ),
-          if (_formenFiltre != v.kisi.telefon || ust)
-            Panel(
-              baslik: ust ? 'Personel (${diger.length})' : 'Ekibe bağlı olmayan personel (${diger.length})',
-              child: diger.isEmpty
-                  ? const Text('Kayıt yok.', style: TextStyle(color: Renk.soluk))
-                  : Column(children: [for (final x in diger) _satir(x, ustYonetim: ust, benim: false)]),
-            ),
           const SizedBox(height: 70),
         ],
       ),
+    );
+  }
+}
+
+/// Baş harfli yuvarlak; seçiliyse onay işareti.
+class _Bas extends StatelessWidget {
+  const _Bas(this.ad, {required this.renk, this.secili = false});
+  final String ad;
+  final Color renk;
+  final bool secili;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = ad.trim().split(RegExp(r'\s+')).where((e) => e.isNotEmpty).toList();
+    final b = p.isEmpty ? '?' : (p.first[0] + (p.length > 1 ? p.last[0] : '')).toUpperCase();
+    return Container(
+      width: 38,
+      height: 38,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: secili ? Renk.ana : renk.withValues(alpha: 0.12),
+        shape: BoxShape.circle,
+      ),
+      child: secili
+          ? const Icon(Icons.check, color: Colors.white, size: 20)
+          : Text(b, style: TextStyle(color: renk, fontWeight: FontWeight.w700, fontSize: 14)),
     );
   }
 }
