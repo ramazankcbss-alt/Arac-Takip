@@ -32,6 +32,8 @@ class Kisi {
   /// Tüm ekipleri yöneten: Yönetici ya da (kendi kapsamında) Çiftlik Sorumlusu.
   bool get ustYonetim => yonetici || roller.contains(rolCiftlik);
   bool get sorumlu => yonetici || roller.contains(rolSorumlu) || roller.contains(rolBakim);
+  /// Bakım-onarım ekibi: arıza, servis ve malzeme taleplerini tüm çiftliklerde takip eder.
+  bool get bakimEkibi => yonetici || roller.contains(rolSorumlu) || roller.contains(rolBakim);
   /// Araç-makine kullanmayan kadro (müdür, uzman, veteriner, raporlama): izler, işlem yapmaz.
   bool get izleyici => roller.contains(rolIzleyici) && !formen && !sorumlu;
 
@@ -143,7 +145,42 @@ class BakimUyari {
   double? get sayac => _d(j['sayac']);
   int get kalan => (_d(j['kalan']) ?? 0).round();
   bool get gecikti => _s(j['durum']) == 'Gecikti';
+  /// 'saat' (motor saati) ya da 'gün' (servis kaydındaki sonraki bakım tarihi)
+  String get birim => _s(j['birim']).isEmpty ? 'saat' : _s(j['birim']);
+  String get hedef => _s(j['hedef']);
+  String get kalanMetni {
+    final ek = birim == 'gün' ? ' (son tarih $hedef)' : ' (sayaç ${_s(j['sayac'])})';
+    if (gecikti) return '${-kalan} $birim gecikti$ek';
+    if (birim == 'gün' && kalan == 0) return 'Bugün yapılmalı$ek';
+    return '$kalan $birim kaldı$ek';
+  }
 }
+
+/// Malzeme / parça / bakım talebi (bakım-onarım ekibi takip eder).
+class Talep {
+  Talep(this.j);
+  final Map<String, dynamic> j;
+  String get no => _s(j['no']);
+  String get tarih => _s(j['tarih']);
+  String get arac => _s(j['arac']);
+  String get tur => _s(j['tur']);
+  String get malzeme => _s(j['malzeme']);
+  String get miktar => _s(j['miktar']);
+  String get aciklama => _s(j['aciklama']);
+  List<String> get fotolar =>
+      (j['fotolar'] is List) ? (j['fotolar'] as List).map(_s).where((x) => x.isNotEmpty).toList() : const [];
+  String get talepEden => _s(j['talepEden']);
+  String get telefon => _s(j['telefon']);
+  String get ciftlik => _s(j['ciftlik']);
+  String get durum => _s(j['durum']);
+  String get guncelleyen => _s(j['guncelleyen']);
+  String get guncelleme => _s(j['guncelleme']);
+  String get not => _s(j['not']);
+  bool get kapali => durum == 'Tamamlandı' || durum == 'İptal';
+}
+
+const talepTurleri = ['Parça değişimi', 'Bakım ihtiyacı', 'Malzeme alımı', 'Lastik', 'Diğer'];
+const talepDurumlari = ['Talep edildi', 'Değerlendiriliyor', 'Satınalmada', 'Tedarik edildi', 'Tamamlandı', 'İptal'];
 
 class Plan {
   Plan(this.j);
@@ -274,6 +311,7 @@ class Veri {
         bakimUyari = _liste(j['bakimUyari']).map(BakimUyari.new).toList(),
         plan = _liste(j['plan']).map(Plan.new).toList(),
         bakimKayit = _liste(j['bakimKayit']).map(BakimKaydi.new).toList(),
+        talepler = _liste(j['talepler']).map(Talep.new).toList(),
         kullanicilar = _liste(j['kullanicilar']).map(Kullanici.new).toList(),
         izlemeEmirleri = _liste(j['izlemeEmirleri']).map(IsEmri.new).toList(),
         isEmirlerim = _liste(j['isEmirlerim']).map(IsEmri.new).toList(),
@@ -299,6 +337,7 @@ class Veri {
   final List<EkipUyesi> ekibim, atanabilir;
   final List<IsEmri> isEmirlerim, verdigimEmirler, izlemeEmirleri;
   final List<Kullanici> kullanicilar;
+  final List<Talep> talepler;
   final List<YerOnerisi> yerler;
   final List<Formen> formenler;
 

@@ -6,18 +6,65 @@ import '../tema.dart';
 import '../veri/model.dart';
 import 'araclar.dart';
 import 'bilesen.dart';
+import 'talep.dart';
 
 /// Arıza takibi: açık arızalar üstte; durum güncelleme ve onarım kaydı.
-class ArizalarSayfasi extends StatelessWidget {
+class ArizalarSayfasi extends StatefulWidget {
   const ArizalarSayfasi({super.key});
+
+  @override
+  State<ArizalarSayfasi> createState() => _ArizalarSayfasiState();
+}
+
+class _ArizalarSayfasiState extends State<ArizalarSayfasi> {
+  bool _talep = false;
 
   @override
   Widget build(BuildContext context) {
     final v = Depo.ben.veri!;
     final acik = v.arizalar.where((a) => !a.kapali).toList();
     final kapali = v.arizalar.where((a) => a.kapali).take(30).toList();
+    final acikTalep = v.talepler.where((t) => !t.kapali).toList();
+    final kapaliTalep = v.talepler.where((t) => t.kapali).take(30).toList();
+    final secim = SegmentedButton<bool>(
+      segments: [
+        ButtonSegment(value: false, icon: const Icon(Icons.build_circle_outlined), label: Text('Arızalar (${acik.length})')),
+        ButtonSegment(
+            value: true, icon: const Icon(Icons.inventory_2_outlined), label: Text('Malzeme Talepleri (${acikTalep.length})')),
+      ],
+      selected: {_talep},
+      onSelectionChanged: (x) => setState(() => _talep = x.first),
+    );
+    if (_talep) {
+      return YenilenirListe(
+        children: [
+          secim,
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(minimumSize: const Size(64, 50)),
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TalepFormu())),
+            icon: const Icon(Icons.add_shopping_cart),
+            label: const Text('Parça / Bakım Talebi'),
+          ),
+          const SizedBox(height: 10),
+          Panel(
+            baslik: 'Açık talepler (${acikTalep.length})',
+            child: acikTalep.isEmpty
+                ? const Bos('Açık talep yok.', ikon: Icons.check_circle_outline)
+                : Column(children: [for (final t in acikTalep) TalepKarti(t: t)]),
+          ),
+          if (kapaliTalep.isNotEmpty)
+            Panel(
+              baslik: 'Kapanan talepler',
+              child: Column(children: [for (final t in kapaliTalep) TalepKarti(t: t)]),
+            ),
+        ],
+      );
+    }
     return YenilenirListe(
       children: [
+        secim,
+        const SizedBox(height: 10),
         Panel(
           baslik: 'Açık arızalar (${acik.length})',
           child: acik.isEmpty

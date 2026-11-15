@@ -1,4 +1,7 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../servis/api.dart';
 import '../tema.dart';
@@ -151,5 +154,69 @@ class BilgiSatiri extends StatelessWidget {
             Expanded(child: Text(deger.isEmpty ? '–' : deger)),
           ],
         ),
+      );
+}
+
+/// İsteğe bağlı fotoğraf seçici (kamera): küçük resimler, ✕ ile kaldırma, en fazla [enFazla].
+class FotoSecici extends StatelessWidget {
+  const FotoSecici({super.key, required this.fotolar, required this.degisti, this.enFazla = 3, this.etiket = 'Fotoğraf ekle'});
+  final List<Uint8List> fotolar;
+  final VoidCallback degisti;
+  final int enFazla;
+  final String etiket;
+
+  Future<void> _cek(BuildContext context) async {
+    try {
+      final x = await ImagePicker().pickImage(
+        source: ImageSource.camera,
+        maxWidth: 1600,
+        maxHeight: 1600,
+        imageQuality: 65,
+      );
+      if (x == null) return;
+      fotolar.add(await x.readAsBytes());
+      degisti();
+    } catch (_) {
+      if (context.mounted) bildir(context, 'Kamera açılamadı.');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          for (var i = 0; i < fotolar.length; i++)
+            Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.memory(fotolar[i], width: 90, height: 90, fit: BoxFit.cover),
+                ),
+                Positioned(
+                  right: 0,
+                  top: 0,
+                  child: InkWell(
+                    onTap: () {
+                      fotolar.removeAt(i);
+                      degisti();
+                    },
+                    child: Container(
+                      decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
+                      padding: const EdgeInsets.all(2),
+                      child: const Icon(Icons.close, size: 18, color: Colors.white),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          if (fotolar.length < enFazla)
+            OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(minimumSize: const Size(90, 90)),
+              onPressed: () => _cek(context),
+              icon: const Icon(Icons.photo_camera_outlined),
+              label: Text(fotolar.isEmpty ? '$etiket\n(isteğe bağlı)' : 'Ekle', textAlign: TextAlign.center),
+            ),
+        ],
       );
 }

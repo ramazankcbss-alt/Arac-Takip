@@ -24,7 +24,11 @@ var BASLIKLAR = {
   'Bakım_Plan': ['Araç No', 'Bakım Türü', 'Periyot (saat)', 'Son Yapılan (saat)', 'Son Yapılan Tarih'],
   'Bakım_Kayıt': ['Kayıt No', 'Tarih', 'Araç No', 'Kayıt Türü', 'Bakım Türü', 'Motor Saati',
     'Yapılan İş', 'Değişen Parça', 'Firma / Atölye', 'Tutar (TL)', 'Belge No', 'Giren',
-    'Giriş Zamanı'],
+    'Giriş Zamanı', 'Belge Fotoğrafı', 'Sonraki Bakım Tarihi', 'Sonraki Bakım Saati', 'Talep No'],
+  // Kırılan / değişecek parça, alınacak malzeme ve bakım ihtiyacı: bakım-onarım ekibi takip eder
+  'Malzeme_Talepleri': ['Talep No', 'Tarih', 'Araç No', 'Talep Türü', 'Parça / Malzeme', 'Miktar', 'Açıklama',
+    'Fotoğraf', 'Talep Eden', 'Telefon', 'Çiftlik', 'Durum', 'Son Güncelleyen', 'Son Güncelleme', 'Not',
+    'Kapanış Zamanı'],
   'Arıza': ['Arıza No', 'Bildirim Zamanı', 'Araç No', 'Bildiren', 'Telefon', 'Çiftlik',
     'Açıklama', 'Fotoğraf', 'Durum', 'Son Güncelleyen', 'Son Güncelleme', 'Onarım Notu',
     'Kapanış Zamanı', 'Arıza Yeri', 'Birlikte Kullanılan'],
@@ -113,6 +117,8 @@ function doPost(e) {
       case 'isEmriVer': return json_(isEmriVer_(k, g));
       case 'bildirimKontrol': return json_(bildirimKontrol_(k, g));
       case 'fcmKaydet': return json_(fcmKaydet_(k, g));
+      case 'talepAc': return json_(talepAc_(k, g));
+      case 'talepDurum': return json_(talepDurum_(k, g));
       case 'kullaniciIslem': return json_(kullaniciIslem_(k, g));
       case 'isEmriDurum': return json_(isEmriDurum_(k, g));
       default: return json_({ ok: false, hata: 'Bilinmeyen işlem: ' + g.tur });
@@ -278,6 +284,15 @@ function roller_(telefon, p) {
     var b = buyuk_(p.birim);
     if (!(e && e.ciftlik) && (b.indexOf('DİREKTÖRLÜĞÜ') >= 0 || b.indexOf('MÜDÜRLÜĞÜ') >= 0)) ciftlik = 'Tümü';
   }
+  // Bakım-onarım formeninin ekibindeki personel de bakım-onarım ekibidir.
+  if (e && e.formen && e.formen !== telefon) {
+    var fp = personeller_()[e.formen];
+    var fBakim = fp && /BAKIM|ATÖLYE|TAMİR/.test(buyuk_(fp.gorev));
+    if (!fBakim) rollerSatirlari_().forEach(function (r) {
+      if (tel_(r[0]) === e.formen && buyuk_(r[2]).indexOf('BAKIM') >= 0) fBakim = true;
+    });
+    if (fBakim) set[ROL_BAKIM] = true;
+  }
   if (p) {
     var g = buyuk_(p.gorev);
     if (g.indexOf('FORMEN') >= 0 || g.indexOf('ŞEF') >= 0) set[ROL_FORMEN] = true;
@@ -311,6 +326,11 @@ function formenMi_(telefon) {
 function tumCiftlikler_(k) {
   return k.roller.indexOf(ROL_YONETICI) >= 0 || k.ciftlik === 'Tümü';
 }
+/** Bakım-onarım ekibi ve Makine-Ekipman Sorumlusu tüm çiftliklerin arıza, bakım ve taleplerini görür. */
+function bakimEkibi_(k) {
+  return yoneticiMi_(k) || k.roller.indexOf(ROL_BAKIM) >= 0 || k.roller.indexOf(ROL_SORUMLU) >= 0;
+}
+function bakimKapsami_(k, ciftlik) { return bakimEkibi_(k) || ayniCiftlik_(k, ciftlik); }
 function ayniCiftlik_(k, ciftlik) { return tumCiftlikler_(k) || bas_(ciftlik) === k.ciftlik; }
 
 /**
@@ -483,9 +503,37 @@ function kullanimNesne_(r, i) {
     fotolar: bas_(r[23]) ? bas_(r[23]).split(/\s+/) : [] };
 }
 
+function izleyiciDegil_(k) { return k.roller.indexOf(ROL_IZLEYICI) < 0; }
+
 function bakimUyarilari_(araclar) {
   var plan = tablo_('Bakım_Plan').rows;
   var sonuc = [];
+  // Servis / bakım kaydında belirtilen sonraki bakım (tarih ya da motor saati): her araç ve
+  // kayıt türü için en son kayıt esas alınır.
+  var sonKayit = {};
+  tablo_('Bakım_Kayıt').rows.forEach(function (r) {
+    if (!bas_(r[14]) && !bas_(r[15])) return;
+    sonKayit[r[2] + '|' + (r[4] || r[3])] = r;
+  });
+  var aracMap = {};
+  araclar.forEach(function (a) { aracMap[a.no] = a; });
+  Object.keys(sonKayit).forEach(function (anahtar) {
+    var r = sonKayit[anahtar];
+    var a = aracMap[r[2]];
+    if (!a || a.durum === 'Pasif') return;
+    var ad = (r[4] || r[3]) + ' (servis kaydı ' + r[0] + ')';
+    var gun = bas_(r[14]) ? -gunFarki_(r[14]) : null; // kalan gün
+    if (gun != null && gun <= 15) {
+      sonuc.push({ arac: a.no, tur: a.tur, model: a.model, ciftlik: a.ciftlik, bakim: ad, birim: 'gün',
+        hedef: r[14], kalan: gun, sayac: a.sayac, durum: gun < 0 ? 'Gecikti' : 'Yaklaşıyor' });
+    }
+    var hedefSaat = sayi_(r[15]);
+    if (hedefSaat != null && a.sayac != null && hedefSaat - a.sayac <= 25) {
+      var kalan = Math.round(hedefSaat - a.sayac);
+      sonuc.push({ arac: a.no, tur: a.tur, model: a.model, ciftlik: a.ciftlik, bakim: ad, birim: 'saat',
+        hedef: hedefSaat, kalan: kalan, sayac: a.sayac, durum: kalan < 0 ? 'Gecikti' : 'Yaklaşıyor' });
+    }
+  });
   araclar.forEach(function (a) {
     if (a.durum === 'Pasif') return;
     plan.filter(function (p) { return p[0] === a.no; }).forEach(function (p) {
@@ -494,7 +542,7 @@ function bakimUyarilari_(araclar) {
       if (!periyot || a.sayac == null) return;
       var kalan = (son || 0) + periyot - a.sayac;
       if (kalan <= Math.max(25, periyot * 0.1)) {
-        sonuc.push({ arac: a.no, tur: a.tur, model: a.model, ciftlik: a.ciftlik, bakim: p[1],
+        sonuc.push({ arac: a.no, tur: a.tur, model: a.model, ciftlik: a.ciftlik, bakim: p[1], birim: 'saat',
           periyot: periyot, son: son, sayac: a.sayac, kalan: Math.round(kalan),
           durum: kalan < 0 ? 'Gecikti' : 'Yaklaşıyor' });
       }
@@ -531,6 +579,10 @@ function veri_(k) {
     bildirimler: bildirim,
     arizalarim: arizalar.filter(function (a) { return a.telefon === k.telefon; }).slice(-10).reverse(),
     ciftlikler: ciftlikler_(),
+    talepler: talepler_().filter(function (x) {
+      return x.telefon === k.telefon || (izleyiciDegil_(k) && bakimKapsami_(k, x.ciftlik) &&
+        (bakimEkibi_(k) || yetki_(k, 'formen')));
+    }).reverse().slice(0, 300),
     isEmirlerim: isEmirleri_().filter(function (e) {
       return e.telefon === k.telefon && (e.durum === 'Verildi' || e.durum === 'Başladı') && gunFarki_(e.tarih) >= -1;
     }).reverse(),
@@ -562,8 +614,8 @@ function veri_(k) {
     }).reverse().slice(0, 300);
   }
   if (izleyici || yetki_(k, 'sorumlu') || yetki_(k, 'formen')) {
-    o.arizalar = arizalar.filter(function (a) { return ayniCiftlik_(k, a.ciftlik); }).reverse();
-    o.bakimUyari = bakimUyarilari_(araclar.filter(function (a) { return ayniCiftlik_(k, a.ciftlik); }));
+    o.arizalar = arizalar.filter(function (a) { return bakimKapsami_(k, a.ciftlik); }).reverse();
+    o.bakimUyari = bakimUyarilari_(araclar.filter(function (a) { return bakimKapsami_(k, a.ciftlik); }));
   }
   if (yetki_(k, 'sorumlu')) {
     o.plan = tablo_('Bakım_Plan').rows.map(function (r) {
@@ -705,7 +757,7 @@ function ariza_(k, g) {
   hucre_('Araçlar', a.satir, 'Güncelleme', simdi_());
   var arac = a.row[0] + ' (' + [a.row[1], a.row[2]].filter(String).join(' ') + ')';
   var formen = formenOf_(k.telefon);
-  bildir_(rolTelefonlari_([ROL_FORMEN, ROL_BAKIM, ROL_SORUMLU], a.row[4]).concat(formen ? [formen] : []), 'Arıza',
+  bildir_(rolTelefonlari_([ROL_FORMEN], a.row[4]).concat(bakimEkibiTelefonlari_()).concat(formen ? [formen] : []), 'Arıza',
     'Arıza bildirimi (' + (yer === SINIF_EKIPMAN ? 'makine-ekipman' : 'araç') + '): ' + arac +
       (bas_(g.birlikte) ? ' – birlikte: ' + bas_(g.birlikte) : ''), k.ad + ' – ' + simdi_() + '\n' + (aciklama || 'Fotoğraflı bildirim') + (link ? '\n' + link : ''));
   return { ok: true, no: no };
@@ -948,6 +1000,55 @@ function bildirimKontrol_(k, g) {
     if (tel_(r[1]) === k.telefon && r[5] !== 'Evet' && r[6] !== 'Evet') yeni.push({ tur: r[2], baslik: r[3], metin: r[4] });
   }
   return { ok: true, son: enSon, yeni: yeni.slice(-10) };
+}
+
+// ---------------------------------------------------------------------------
+// Malzeme / parça / bakım talepleri (formen ve personel açar, bakım-onarım ekibi takip eder)
+
+var TALEP_DURUMLARI = ['Talep edildi', 'Değerlendiriliyor', 'Satınalmada', 'Tedarik edildi', 'Tamamlandı', 'İptal'];
+
+function talepler_() {
+  return tablo_('Malzeme_Talepleri').rows.map(function (r, i) {
+    return { satir: i + 2, no: r[0], tarih: r[1], arac: r[2], tur: r[3], malzeme: r[4], miktar: r[5],
+      aciklama: r[6], fotolar: bas_(r[7]) ? bas_(r[7]).split(/\s+/) : [], talepEden: r[8], telefon: tel_(r[9]),
+      ciftlik: r[10], durum: r[11], guncelleyen: r[12], guncelleme: r[13], not: r[14], kapanis: r[15] };
+  }).filter(function (x) { return bas_(x.no); });
+}
+
+function bakimEkibiTelefonlari_() { return rolTelefonlari_([ROL_BAKIM, ROL_SORUMLU], ''); }
+
+function talepAc_(k, g) {
+  var d = g.talep || {};
+  var a = bas_(d.arac) ? aracBul_(bas_(d.arac)) : null;
+  if (bas_(d.arac) && !a) return { ok: false, hata: 'Araç ya da makine-ekipman bulunamadı.' };
+  if (!bas_(d.tur)) return { ok: false, hata: 'Talep türünü seçin.' };
+  if (!bas_(d.malzeme) && !bas_(d.aciklama)) return { ok: false, hata: 'Parça / malzemeyi ya da açıklamayı yazın.' };
+  var no = yeniNo_('Malzeme_Talepleri', 'T');
+  var ciftlik = a ? a.row[4] : k.ciftlik;
+  var fotolar = fotolariKaydet_(d.fotolar, no + (a ? '_' + a.row[0] : ''));
+  ekle_('Malzeme_Talepleri', [no, bugun_(), a ? a.row[0] : '', bas_(d.tur), bas_(d.malzeme), bas_(d.miktar),
+    bas_(d.aciklama), fotolar.join(' '), k.ad, k.telefon, ciftlik, 'Talep edildi', k.ad, simdi_(), '', '']);
+  bildir_(bakimEkibiTelefonlari_(), 'Malzeme talebi', bas_(d.tur) + (a ? ': ' + a.row[0] : '') + ' – ' + ciftlik,
+    [bas_(d.malzeme) + (bas_(d.miktar) ? ' (' + bas_(d.miktar) + ')' : ''), bas_(d.aciklama), 'Talep eden: ' + k.ad]
+      .filter(String).join('\n'));
+  return { ok: true, no: no };
+}
+
+function talepDurum_(k, g) {
+  if (!bakimEkibi_(k)) return { ok: false, hata: 'Talep durumunu bakım-onarım ekibi günceller.' };
+  var durum = bas_(g.durum);
+  if (TALEP_DURUMLARI.indexOf(durum) < 0) return { ok: false, hata: 'Geçersiz durum.' };
+  var x = talepler_().filter(function (t) { return t.no === bas_(g.no); })[0];
+  if (!x) return { ok: false, hata: 'Talep bulunamadı.' };
+  hucre_('Malzeme_Talepleri', x.satir, 'Durum', durum);
+  hucre_('Malzeme_Talepleri', x.satir, 'Son Güncelleyen', k.ad);
+  hucre_('Malzeme_Talepleri', x.satir, 'Son Güncelleme', simdi_());
+  if (bas_(g.not)) hucre_('Malzeme_Talepleri', x.satir, 'Not', [x.not, bas_(g.not)].filter(String).join(' | '));
+  if (durum === 'Tamamlandı' || durum === 'İptal') hucre_('Malzeme_Talepleri', x.satir, 'Kapanış Zamanı', simdi_());
+  bildir_([x.telefon].concat(rolTelefonlari_([ROL_FORMEN], x.ciftlik)).filter(function (t) { return t !== k.telefon; }),
+    'Malzeme talebi', 'Talep ' + x.no + ' – ' + (x.arac || x.malzeme) + ': ' + durum,
+    [x.malzeme, bas_(g.not), '(' + k.ad + ')'].filter(String).join(' · '));
+  return { ok: true };
 }
 
 // ---------------------------------------------------------------------------
@@ -1286,8 +1387,12 @@ function bakimKaydet_(k, g) {
   if (!bas_(d.kayitTuru)) return { ok: false, hata: 'Kayıt türünü seçin.' };
   var sayac = sayi_(d.sayac);
   var no = yeniNo_('Bakım_Kayıt', 'B');
+  var sonrakiSaat = sayi_(d.sonrakiSaat);
   ekle_('Bakım_Kayıt', [no, bas_(d.tarih) || bugun_(), a.row[0], bas_(d.kayitTuru), bas_(d.bakim),
-    sayac == null ? '' : sayac, bas_(d.is), bas_(d.parca), bas_(d.firma), bas_(d.tutar), bas_(d.belge), k.ad, simdi_()]);
+    sayac == null ? '' : sayac, bas_(d.is), bas_(d.parca), bas_(d.firma), bas_(d.tutar), bas_(d.belge), k.ad, simdi_(),
+    fotolariKaydet_(d.fotolar, no + '_' + a.row[0] + '_belge').join(' '), bas_(d.sonrakiTarih),
+    sonrakiSaat == null ? '' : sonrakiSaat, bas_(d.talepNo)]);
+  if (bas_(d.talepNo)) talepDurum_(k, { no: d.talepNo, durum: 'Tamamlandı', not: 'Bakım kaydı ' + no });
   // Periyodik bakımsa planın "son yapılan" bilgisi güncellenir.
   if (bas_(d.bakim)) {
     var t = tablo_('Bakım_Plan');

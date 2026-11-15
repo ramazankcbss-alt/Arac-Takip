@@ -8,6 +8,7 @@ import 'bilesen.dart';
 import 'is_baslat.dart';
 import 'is_bitir.dart';
 import 'is_emri.dart';
+import 'talep.dart';
 
 /// Operatörün ana sayfası: devam eden iş, iş başlatma, arıza bildirimi, geçmiş.
 class IslerimSayfasi extends StatelessWidget {
@@ -72,6 +73,21 @@ class IslerimSayfasi extends StatelessWidget {
                   ),
               ],
             ),
+          ),
+        OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(minimumSize: const Size(64, 52)),
+          onPressed: () => Navigator.push(
+              context, MaterialPageRoute(builder: (_) => TalepFormu(arac: acik?.arac))),
+          icon: const Icon(Icons.add_shopping_cart),
+          label: const Text('Parça / Bakım Talebi'),
+        ),
+        const SizedBox(height: 12),
+        if (v.talepler.any((t) => t.telefon == v.kisi.telefon && !t.kapali))
+          Panel(
+            baslik: 'Taleplerim',
+            child: Column(children: [
+              for (final t in v.talepler.where((t) => t.telefon == v.kisi.telefon && !t.kapali)) TalepKarti(t: t)
+            ]),
           ),
         Panel(
           baslik: 'Son kayıtlarım',

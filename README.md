@@ -135,3 +135,15 @@ Erişim kapatıldı, Programdan çıkarıldı). İşlemler:
 - **Programdan çıkar**: Roller'a `Hariç` yazılır; cihaz, ekip ve rol kayıtları silinir; ekip ve iş emri
   listelerinde görünmez. Geçmiş kullanım, arıza ve iş emri kayıtları korunur.
 - **Erişimi yeniden aç**: iki işlemi de geri alır.
+
+## Servis kayıtları, sonraki bakım ve malzeme talepleri
+
+- **Bakım / Onarım kaydı**: fatura ve servis belgesi kamerayla eklenir (en fazla 3 fotoğraf, Drive'a kaydedilir).
+  Servisin belirttiği **sonraki bakım** tarih ya da motor saati olarak girilir; tarihe 15 gün, saate 25 saat
+  kala ve geciktiğinde bakım uyarılarında görünür.
+- **Parça / Bakım Talebi**: formen ve personel, kırılan / değişecek parça, alınacak malzeme ya da bakım
+  ihtiyacını (araç, açıklama, fotoğraf) bildirir. Talep anında bakım-onarım ekibine gider.
+- **Bakım-onarım ekibi**: görevi bakım-onarım olanlar, bakım-onarım formeninin (Serdar Öz) ekibindeki personel
+  ve Makine-Ekipman Sorumlusu. Tüm çiftliklerin arızalarını, bakım uyarılarını ve taleplerini görür; talep
+  durumunu (Değerlendiriliyor, Satınalmada, Tedarik edildi, Tamamlandı, İptal) günceller, talepten bakım kaydı girer.
+  Talep eden ve çiftlik formeni her durum değişikliğinde bilgilendirilir.

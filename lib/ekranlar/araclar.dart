@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 
 import '../servis/api.dart';
@@ -48,8 +50,8 @@ class _AraclarSayfasiState extends State<AraclarSayfasi> {
                       contentPadding: EdgeInsets.zero,
                       title: Text('${b.arac} · ${b.bakim}'),
                       subtitle: Text(b.gecikti
-                          ? '${-b.kalan} saat gecikti (sayaç ${sayiYaz(b.sayac)})'
-                          : '${b.kalan} saat kaldı (sayaç ${sayiYaz(b.sayac)})'),
+                          ? b.kalanMetni
+                          : b.kalanMetni),
                       trailing: Rozet.durum(b.gecikti ? 'Gecikti' : 'Yaklaşıyor'),
                       onTap: sorumlu
                           ? () => Navigator.push(
@@ -415,6 +417,37 @@ class _AracFormuState extends State<AracFormu> {
           ),
           const SizedBox(height: 12),
           TextField(controller: _not, maxLines: 2, decoration: const InputDecoration(labelText: 'Not')),
+          const SizedBox(height: 16),
+          const Text('Fatura / servis belgesi', style: TextStyle(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 6),
+          FotoSecici(fotolar: _fotolar, degisti: () => setState(() {}), etiket: 'Belge fotoğrafı'),
+          const SizedBox(height: 16),
+          const Text('Sonraki bakım', style: TextStyle(fontWeight: FontWeight.w700)),
+          const Text('Servisin belirttiği bir sonraki bakım; süre dolmadan bakım-onarım ekibine uyarı düşer.',
+              style: TextStyle(color: Renk.soluk, fontSize: 12)),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _sonrakiTarih,
+                  readOnly: true,
+                  onTap: _sonrakiTarihSec,
+                  decoration: InputDecoration(
+                    labelText: 'Tarih',
+                    suffixIcon: _sonrakiTarih.text.isEmpty
+                        ? const Icon(Icons.event)
+                        : IconButton(
+                            icon: const Icon(Icons.clear),
+                            onPressed: () => setState(_sonrakiTarih.clear),
+                          ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(child: SayiAlani(kontrol: _sonrakiSaat, etiket: 'ya da motor saati')),
+            ],
+          ),
           const SizedBox(height: 20),
           FilledButton.icon(onPressed: _kaydet, icon: const Icon(Icons.save), label: const Text('Kaydet')),
         ],
@@ -425,11 +458,12 @@ class _AracFormuState extends State<AracFormu> {
 
 /// Bakım / onarım kaydı (geçmiş kayıtlar dahil).
 class BakimFormu extends StatefulWidget {
-  const BakimFormu({super.key, required this.arac, this.bakim, this.sayac, this.arizaNo});
+  const BakimFormu({super.key, required this.arac, this.bakim, this.sayac, this.arizaNo, this.talepNo});
   final String arac;
   final String? bakim;
   final double? sayac;
   final String? arizaNo;
+  final String? talepNo;
 
   @override
   State<BakimFormu> createState() => _BakimFormuState();
@@ -447,10 +481,13 @@ class _BakimFormuState extends State<BakimFormu> {
   final _firma = TextEditingController();
   final _tutar = TextEditingController();
   final _belge = TextEditingController();
+  final _sonrakiTarih = TextEditingController();
+  final _sonrakiSaat = TextEditingController();
+  final _fotolar = <Uint8List>[];
 
   @override
   void dispose() {
-    for (final c in [_tarih, _sayac, _is, _parca, _firma, _tutar, _belge]) {
+    for (final c in [_tarih, _sayac, _is, _parca, _firma, _tutar, _belge, _sonrakiTarih, _sonrakiSaat]) {
       c.dispose();
     }
     super.dispose();
@@ -468,6 +505,21 @@ class _BakimFormuState extends State<BakimFormu> {
     }
   }
 
+  Future<void> _sonrakiTarihSec() async {
+    final simdi = DateTime.now();
+    final d = await showDatePicker(
+      context: context,
+      firstDate: simdi.subtract(const Duration(days: 30)),
+      lastDate: simdi.add(const Duration(days: 365 * 5)),
+      initialDate: simdi.add(const Duration(days: 180)),
+      helpText: 'Sonraki bakım tarihi',
+    );
+    if (d != null) {
+      setState(() => _sonrakiTarih.text =
+          '${d.day.toString().padLeft(2, '0')}.${d.month.toString().padLeft(2, '0')}.${d.year}');
+    }
+  }
+
   Future<void> _kaydet() async {
     final j = await islem(context, 'bakimKaydet', {
       'kayit': {
@@ -482,6 +534,10 @@ class _BakimFormuState extends State<BakimFormu> {
         'tutar': _tutar.text.trim(),
         'belge': _belge.text.trim(),
         if (widget.arizaNo != null) 'arizaNo': widget.arizaNo,
+        if (widget.talepNo != null) 'talepNo': widget.talepNo,
+        'sonrakiTarih': _sonrakiTarih.text.trim(),
+        'sonrakiSaat': sayiOku(_sonrakiSaat.text),
+        if (_fotolar.isNotEmpty) 'fotolar': _fotolar.map(base64Encode).toList(),
       },
     }, basari: 'Kayıt eklendi.');
     if (j != null && mounted) Navigator.pop(context);
