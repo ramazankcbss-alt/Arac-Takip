@@ -287,7 +287,28 @@ function ekipler_() {
     var t = tel_(r[0]);
     if (t) m[t] = { formen: tel_(r[2]), formenAd: bas_(r[3]), ciftlik: bas_(r[4]), zaman: r[5] };
   });
+  // Formeni olmayan birimlerde (ör. Erentepe) saha personelinin organizasyon şemasındaki amiri
+  // ekip sorumlusudur: formen yetkilerini o personel için kullanır.
+  var org = orgSatirlari_();
+  Object.keys(org).forEach(function (t) {
+    var o = org[t];
+    if (o.kademe === KADEME_SAHA && o.ust && o.ust !== t && !(m[t] && m[t].formen)) {
+      m[t] = { formen: o.ust, formenAd: o.ustAd, ciftlik: '', zaman: o.guncelleme, amir: true };
+    }
+  });
   EKIP_ = m;
+  return m;
+}
+
+/** Saha personelinin amiri olan kişiler (kademesi ne olursa olsun formen yetkisi kullanır). */
+function ekipAmirleri_() {
+  var m = {};
+  var ek = ekipler_();
+  var org = orgSatirlari_();
+  Object.keys(org).forEach(function (t) {
+    var o = org[t];
+    if (o.kademe === KADEME_SAHA && o.ust && ek[t] && ek[t].formen === o.ust) m[o.ust] = true;
+  });
   return m;
 }
 
@@ -349,6 +370,8 @@ function roller_(telefon, p) {
     delete set[ROL_FORMEN];
     if (o.kademe === KADEME_SAHA) delete set[ROL_IZLEYICI];
   }
+  // Saha personelinin amiri: o personel için formen yetkilerini kullanır.
+  if (ekipAmirleri_()[telefon]) { set[ROL_FORMEN] = true; delete set[ROL_IZLEYICI]; }
   if (o && o.ciftlik) ciftlik = o.ciftlik;
   var kapsam = o && o.kapsam.length ? o.kapsam.slice() : [ciftlik];
   // Direktörlük / müdürlük kapsamı, bağlı tüm çiftlikleri kapsar.
@@ -1277,7 +1300,10 @@ function orgDuzenle_(k, g) {
   var kapsam = (Array.isArray(g.kapsam) ? g.kapsam : []).map(bas_).filter(String);
   if (kapsam.indexOf('Tümü') >= 0) kapsam = ['Tümü'];
   var ustFormen = ust && map[ust].kademe === KADEME_FORMEN;
-  var satir = [hedef, p.ad, kademe, ustFormen ? '' : ust, ustFormen || !ust ? '' : map[ust].ad, ciftlik,
+  // Saha personelinde amir her durumda yazılır: formen değilse ekip sorumlusu olur.
+  var ustYaz = ust && (!ustFormen || kademe === KADEME_SAHA);
+  var gercekEkip = tablo_('Ekipler').rows.some(function (r) { return tel_(r[0]) === hedef; });
+  var satir = [hedef, p.ad, kademe, ustYaz ? ust : '', ustYaz ? map[ust].ad : '', ciftlik,
     kapsam.join('; '), k.ad, simdi_()];
   var b = bul();
   if (b.no > 0) b.t.sh.getRange(b.no, 1, 1, satir.length).setValues([satir.map(String)]);
@@ -1291,12 +1317,17 @@ function orgDuzenle_(k, g) {
     var r1 = yf ? ekipAtaTek_(k, hedef, ust, yf) : { ok: false, hata: map[ust].ad + ' formen olarak tanımlı değil.' };
     if (!r1.ok) uyari = r1.hata;
     else bildir_([ust], 'Görevlendirme', 'Ekip değişikliği', p.ad + ' ekibinize görevlendirildi. İşlemi yapan: ' + k.ad);
-  } else if (mevcutFormen && !(kademe === KADEME_SAHA && ustFormen)) {
+  } else if (gercekEkip && mevcutFormen && !(kademe === KADEME_SAHA && ustFormen)) {
     var eskiAd = map[mevcutFormen] ? map[mevcutFormen].ad : '';
+    // Formen dışı amire bağlanan saha personeli, o amirin ekibinde görünür (ekipler_ yedeği).
     satirSil_('Ekipler', function (r) { return tel_(r[0]) === hedef; });
     ekle_('Görevlendirme_Geçmişi', [simdi_(), hedef, p.ad, eskiAd, 'Ekipten çıkarıldı (organizasyon düzeltmesi)', '', k.ad]);
     if (mevcutFormen !== k.telefon) bildir_([mevcutFormen], 'Görevlendirme', 'Ekip değişikliği',
       p.ad + ' ekibinizden çıkarıldı (organizasyon düzeltmesi). İşlemi yapan: ' + k.ad);
+  }
+  if (kademe === KADEME_SAHA && ust && !ustFormen && map[hedef].ust !== ust) {
+    bildir_([ust], 'Görevlendirme', 'Ekip değişikliği', p.ad + ' size bağlandı. Bu personel için iş emri verebilir ve ' +
+      'günlük araç kayıtlarını onaylayabilirsiniz. İşlemi yapan: ' + k.ad);
   }
   onbellekTemizle_();
   var yeni = roller_(hedef, personeller_()[hedef]);
