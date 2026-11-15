@@ -119,3 +119,9 @@ kurulu uygulamalar güncellemeyi kendileri alır.
 - **Ekipler** ekranı: formenlere göre personel dağılımı ve formene bağlı olmayan personel sayısı;
   dokununca liste süzülür. Personel işaretlenerek toplu **Formene görevlendir / Ekipten çıkar / Ekibime al**.
   Formenler ekip üyesi listelerinde görünmez.
+
+## Cihaz onayı ve PIN sıfırlama (güncel kural)
+
+- Cihaz onayı ve PIN sıfırlama **yalnız Yönetici** tarafından yapılır (Günlük Onay ekranı ya da
+  Cihazlar sayfasında Durum = `Onaylı`). Formen, Makine-Ekipman Sorumlusu ve Çiftlik Sorumlusu yapamaz.
+  Yeni cihaz talepleri yalnız Yöneticiye bildirilir. Bu bölümdeki önceki ifadelerin yerine geçer.

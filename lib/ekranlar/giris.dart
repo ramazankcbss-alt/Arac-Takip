@@ -121,7 +121,7 @@ class _GirisEkraniState extends State<GirisEkrani> {
   }
 }
 
-/// Cihaz onayı bekleniyor (formen ya da Makine-Ekipman Sorumlusu onaylar).
+/// Cihaz onayı bekleniyor (yalnız Yönetici onaylar).
 class OnayBekleniyorEkrani extends StatefulWidget {
   const OnayBekleniyorEkrani({super.key});
 
@@ -150,13 +150,9 @@ class _OnayBekleniyorEkraniState extends State<OnayBekleniyorEkrani> {
           const SizedBox(height: 8),
           Text(
             reddedildi
-                ? 'Formeninizle görüşün.'
-                : (d.kisi?.izleyici ?? false)
-                    ? 'Sayın ${d.kisi?.ad ?? ''}, izleme erişimi için telefonunuzun Yönetici tarafından '
-                        'onaylanması gerekiyor. Onaylandıktan sonra aşağıdaki düğmeye basın.'
-                    : 'Sayın ${d.kisi?.ad ?? ''}, telefonunuzun formeniniz ya da Makine-Ekipman '
-                        'Sorumlusu tarafından onaylanması gerekiyor. Onaylandıktan sonra '
-                        'aşağıdaki düğmeye basın.',
+                ? 'Yöneticinizle görüşün.'
+                : 'Sayın ${d.kisi?.ad ?? ''}, telefonunuzun Yönetici tarafından onaylanması '
+                    'gerekiyor. Onaylandıktan sonra aşağıdaki düğmeye basın.',
             textAlign: TextAlign.center,
             style: const TextStyle(color: Renk.soluk),
           ),

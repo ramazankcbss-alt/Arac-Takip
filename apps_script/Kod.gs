@@ -296,14 +296,9 @@ function izleyiciMi_(telefon) {
   return roller_(t, personeller_()[t]).roller.indexOf(ROL_IZLEYICI) >= 0;
 }
 function yoneticiMi_(k) { return k.roller.indexOf(ROL_YONETICI) >= 0; }
-/** Cihaz onayı ve PIN sıfırlama yetkisi: Yönetici; izleyici kadrosunda yalnız Yönetici; diğerlerinde sorumlu formen / Makine-Ekipman Sorumlusu. Çiftlik Sorumlusu yapamaz. */
+/** Cihaz onayı ve PIN sıfırlama yalnız Yöneticidedir. */
 function cihazYetkili_(k, telefon, ciftlik) {
-  if (yoneticiMi_(k)) return true;
-  // Çiftlik Sorumlusu cihaz onayı ve PIN sıfırlama yapamaz (formen rolü de yoksa).
-  if (ciftlikSorumlusu_(k) && k.roller.indexOf(ROL_FORMEN) < 0 && !yetki_(k, 'sorumlu')) return false;
-  if (izleyiciMi_(telefon)) return false;
-  if (yetki_(k, 'sorumlu') && !yetki_(k, 'formen')) return ayniCiftlik_(k, ciftlik);
-  return sorumlu_(k, telefon, ciftlik);
+  return yoneticiMi_(k);
 }
 function ciftlikSorumlusu_(k) { return k.roller.indexOf(ROL_CIFTLIK) >= 0; }
 /** Yönetici ya da (kapsamındaki çiftlik için) Çiftlik Sorumlusu: tüm ekipleri yönetir. */
@@ -367,7 +362,7 @@ function giris_(g) {
     return { ok: true, oturum: oturum, durum: durum, kisi: { ad: ad, telefon: telefon, ciftlik: r.ciftlik, roller: r.roller } };
   }
   if (kayit[6] === 'Kilitli') {
-    return { ok: false, hata: 'Hesap, hatalı PIN denemeleri nedeniyle kilitlendi. PIN sıfırlama için formeninize başvurun.' };
+    return { ok: false, hata: 'Hesap, hatalı PIN denemeleri nedeniyle kilitlendi. PIN sıfırlama için yöneticinize başvurun.' };
   }
   if (kayit[5] && kayit[5] !== pinOz) {
     var sayi = Number(pr.getProperty(hataAnahtari) || 0) + 1;
@@ -375,7 +370,7 @@ function giris_(g) {
     if (sayi >= PIN_DENEME_SINIRI) {
       hucre_('Cihazlar', satir, 'Durum', 'Kilitli');
       hucre_('Cihazlar', satir, 'Oturum Anahtarı', '');
-      return { ok: false, hata: 'Hatalı PIN sınırı aşıldı; hesap kilitlendi. PIN sıfırlama için formeninize başvurun.' };
+      return { ok: false, hata: 'Hatalı PIN sınırı aşıldı; hesap kilitlendi. PIN sıfırlama için yöneticinize başvurun.' };
     }
     return { ok: false, hata: 'PIN hatalı. Kalan deneme hakkı: ' + (PIN_DENEME_SINIRI - sayi) + '.' };
   }
@@ -461,15 +456,8 @@ function rolTelefonlari_(roller, ciftlik) {
 }
 
 function cihazBildir_(telefon, ad, ciftlik) {
-  if (izleyiciMi_(telefon)) {
-    bildir_(rolTelefonlari_([ROL_YONETICI], ''), 'Cihaz onayı', 'Cihaz onayı bekleniyor (izleme)',
-      ad + ' (' + telefon + ') uygulamaya izleme amaçlı giriş yaptı; cihazının onaylanması gerekiyor.');
-    return;
-  }
-  var e = ekipler_()[tel_(telefon)];
-  var alicilar = e && e.formen ? [e.formen] : rolTelefonlari_([ROL_FORMEN], ciftlik);
-  bildir_(alicilar.concat(rolTelefonlari_([ROL_SORUMLU], ciftlik)), 'Cihaz onayı',
-    'Cihaz onayı bekleniyor', ad + ' (' + telefon + ') uygulamaya giriş yaptı; cihazının onaylanması gerekiyor.');
+  bildir_(rolTelefonlari_([ROL_YONETICI], ''), 'Cihaz onayı', 'Cihaz onayı bekleniyor',
+    ad + ' (' + telefon + (ciftlik ? ', ' + ciftlik : '') + ') uygulamaya giriş yaptı; cihazının onaylanması gerekiyor.');
 }
 
 // ---------------------------------------------------------------------------
