@@ -57,13 +57,17 @@ class _GirisEkraniState extends State<GirisEkrani> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('İş ve Araç Takip')),
+      appBar: AppBar(title: const _Baslik()),
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
           const Icon(Icons.agriculture, size: 64, color: Renk.ana),
           const SizedBox(height: 8),
-          const Text('Araç ve Makine Kullanım Takibi',
+          const Text('TARIM VE HAYVANCILIK DİREKTÖRLÜĞÜ',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800, letterSpacing: 0.8, color: Renk.ana)),
+          const SizedBox(height: 6),
+          const Text('İş ve Araç Takip',
               textAlign: TextAlign.center,
               style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700)),
           const SizedBox(height: 4),
@@ -135,7 +139,7 @@ class _OnayBekleniyorEkraniState extends State<OnayBekleniyorEkrani> {
     final d = Depo.ben;
     final reddedildi = d.cihazDurum == 'Reddedildi';
     return Scaffold(
-      appBar: AppBar(title: const Text('İş ve Araç Takip')),
+      appBar: AppBar(title: const _Baslik()),
       body: ListView(
         padding: const EdgeInsets.all(24),
         children: [
@@ -173,4 +177,10 @@ class _OnayBekleniyorEkraniState extends State<OnayBekleniyorEkrani> {
       ),
     );
   }
+}
+
+class _Baslik extends StatelessWidget {
+  const _Baslik();
+  @override
+  Widget build(BuildContext context) => const UygulamaBasligi();
 }

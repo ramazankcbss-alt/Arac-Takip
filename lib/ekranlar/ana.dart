@@ -7,6 +7,7 @@ import '../tema.dart';
 import 'araclar.dart';
 import 'arizalar.dart';
 import 'bildirimler.dart';
+import 'bilesen.dart';
 import 'ekip.dart';
 import 'islerim.dart';
 import 'izleme.dart';
@@ -93,7 +94,7 @@ class _AnaEkranState extends State<AnaEkran> with WidgetsBindingObserver {
         final s = sekmeler[_sekme];
         return Scaffold(
           appBar: AppBar(
-            title: Text(s.ad == 'İşlerim' ? 'İş ve Araç Takip' : s.ad),
+            title: UygulamaBasligi(baslik: s.ad == 'İşlerim' ? 'İş ve Araç Takip' : s.ad),
             actions: [
               IconButton(
                 tooltip: 'Bildirimler',

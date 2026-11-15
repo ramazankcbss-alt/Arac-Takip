@@ -220,3 +220,20 @@ class FotoSecici extends StatelessWidget {
         ],
       );
 }
+
+/// Uygulama başlığı: "İş ve Araç Takip" ve altında birim adı.
+class UygulamaBasligi extends StatelessWidget {
+  const UygulamaBasligi({super.key, this.baslik = 'İş ve Araç Takip'});
+  final String baslik;
+
+  @override
+  Widget build(BuildContext context) => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(baslik),
+          const Text('TARIM VE HAYVANCILIK DİREKTÖRLÜĞÜ',
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: 0.6, color: Colors.white70)),
+        ],
+      );
+}
