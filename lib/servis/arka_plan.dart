@@ -1,21 +1,73 @@
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
 
 import 'api.dart';
+import 'firebase_ayar.dart';
 
-/// Uygulama kapalıyken yaklaşık 15 dakikada bir yeni bildirimleri sorar ve
-/// telefonun bildirim alanında gösterir (iş emri, arıza, cihaz onayı vb.).
-/// Veri yalnız şirketin Google tablosundan gelir; ek bir bildirim servisi yoktur.
+/// Telefon bildirimleri (iş emri, arıza, cihaz onayı vb.):
+/// 1) Anlık: Firebase Cloud Messaging — sunucu bildirimi saniyeler içinde iter.
+/// 2) Yedek: uygulama kapalıyken yaklaşık 15 dakikada bir, anlık gönderilemeyen
+///    bildirimler sunucudan sorulur ve gösterilir.
 class ArkaPlan {
   static const _gorev = 'bildirim_kontrol';
   static const _kSon = 'bildirim_son';
   static final _bildirim = FlutterLocalNotificationsPlugin();
 
+  static const _kanal = AndroidNotificationChannel(
+    'arac_takip',
+    'Araç Takip bildirimleri',
+    description: 'İş emri, arıza ve onay bildirimleri',
+    importance: Importance.high,
+  );
+
   static Future<void> _hazirla() async {
     const ayar = InitializationSettings(android: AndroidInitializationSettings('@mipmap/ic_launcher'));
     await _bildirim.initialize(ayar);
+    await _bildirim
+        .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(_kanal);
+  }
+
+  static Future<void> _goster(String baslik, String metin) async {
+    await _bildirim.show(
+      DateTime.now().millisecondsSinceEpoch ~/ 1000 % 100000,
+      baslik,
+      metin,
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+          _kanal.id,
+          _kanal.name,
+          channelDescription: _kanal.description,
+          importance: Importance.high,
+          priority: Priority.high,
+          styleInformation: BigTextStyleInformation(metin),
+        ),
+      ),
+    );
+  }
+
+  static bool _anlikKuruldu = false;
+
+  /// Firebase anlık bildirim: anahtar sunucuya kaydedilir.
+  static Future<void> _anlik() async {
+    if (_anlikKuruldu) return;
+    _anlikKuruldu = true;
+    await Firebase.initializeApp(options: firebaseAyar);
+    final fm = FirebaseMessaging.instance;
+    await fm.requestPermission();
+    final anahtar = await fm.getToken();
+    if (anahtar != null) await Depo.ben.gonder('fcmKaydet', {'anahtar': anahtar});
+    fm.onTokenRefresh.listen((a) => Depo.ben.gonder('fcmKaydet', {'anahtar': a}).catchError((_) => <String, dynamic>{}));
+    // Uygulama açıkken gelen bildirim: göster ve verileri yenile.
+    FirebaseMessaging.onMessage.listen((m) {
+      final n = m.notification;
+      if (n != null) _goster(n.title ?? 'Araç Takip', n.body ?? '');
+      Depo.ben.yenile();
+    });
   }
 
   /// Uygulama açılışında çağrılır: izin ister ve periyodik görevi kaydeder.
@@ -25,6 +77,13 @@ class ArkaPlan {
       await _bildirim
           .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
           ?.requestNotificationsPermission();
+      if (Depo.ben.onayli) {
+        try {
+          await _anlik();
+        } catch (_) {
+          // Firebase kurulamazsa 15 dakikalık yedek kontrol çalışır.
+        }
+      }
       await Workmanager().initialize(arkaPlanGirisi);
       await Workmanager().registerPeriodicTask(
         _gorev,
@@ -53,25 +112,8 @@ class ArkaPlan {
     final yeni = j['yeni'];
     if (son == null || yeni is! List || yeni.isEmpty) return;
     await _hazirla();
-    var id = DateTime.now().millisecondsSinceEpoch ~/ 1000 % 100000;
     for (final b in yeni.whereType<Map>()) {
-      final baslik = (b['baslik'] ?? 'Araç Takip').toString();
-      final metin = (b['metin'] ?? '').toString();
-      await _bildirim.show(
-        id++,
-        baslik,
-        metin,
-        NotificationDetails(
-          android: AndroidNotificationDetails(
-            'arac_takip',
-            'Araç Takip bildirimleri',
-            channelDescription: 'İş emri, arıza ve onay bildirimleri',
-            importance: Importance.high,
-            priority: Priority.high,
-            styleInformation: BigTextStyleInformation(metin),
-          ),
-        ),
-      );
+      await _goster((b['baslik'] ?? 'Araç Takip').toString(), (b['metin'] ?? '').toString());
     }
   }
 }

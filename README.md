@@ -100,3 +100,12 @@ kurulu uygulamalar güncellemeyi kendileri alır.
 - Yönetmek isteyen kişiye Roller sayfasından rol verilir: `Formen`, `Makine-Ekipman Sorumlusu`,
   `Bakım-Onarım` ya da `Yönetici` (çiftlik sütunu: çiftlik adı ya da `Tümü`). Araç kullanacaksa `Personel`.
 - Roller sayfasında `Hariç` yazılan kişi uygulamaya hiç giremez.
+
+## Anlık bildirim (Firebase)
+
+- Firebase projesi: `arac-takip-b5139`, Android paketi `com.panagro.arac_takip`. İstemci ayarları
+  `lib/servis/firebase_ayar.dart` içindedir (gizli değildir).
+- Sunucu anahtarı: Firebase → Proje ayarları → Hizmet hesapları → yeni özel anahtar. Dosya Drive'daki
+  "Araç Takip" klasörüne yüklenir, Apps Script'te **fcmKur** bir kez çalıştırılır (anahtar komut dosyası
+  özelliklerine taşınır), ardından Drive'daki dosya silinir.
+- Her bildirim önce anlık gönderilir; gönderilemeyen telefon 15 dakikalık yedek kontrolde alır.

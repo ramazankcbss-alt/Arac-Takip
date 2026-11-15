@@ -29,7 +29,7 @@ var BASLIKLAR = {
     'Açıklama', 'Fotoğraf', 'Durum', 'Son Güncelleyen', 'Son Güncelleme', 'Onarım Notu',
     'Kapanış Zamanı', 'Arıza Yeri', 'Birlikte Kullanılan'],
   'Cihazlar': ['Telefon', 'Ad Soyad', 'Cihaz Kimliği', 'Cihaz Adı', 'Oturum Anahtarı',
-    'PIN Özeti', 'Durum', 'Onaylayan', 'Talep Zamanı', 'Onay Zamanı'],
+    'PIN Özeti', 'Durum', 'Onaylayan', 'Talep Zamanı', 'Onay Zamanı', 'Bildirim Anahtarı'],
   'Roller': ['Telefon', 'Ad Soyad', 'Rol', 'Çiftlik', 'Not'],
   // Personelin bağlı olduğu formen (güncel görevlendirme) ve görevlendirme geçmişi
   // Formenin personele verdiği iş emri: nerede, hangi iş, hangi araç ve makine-ekipmanla
@@ -38,7 +38,7 @@ var BASLIKLAR = {
     'Oluşturma', 'Güncelleme'],
   'Ekipler': ['Telefon', 'Ad Soyad', 'Formen Telefon', 'Formen', 'Çiftlik', 'Görevlendirme Zamanı', 'Görevlendiren'],
   'Görevlendirme_Geçmişi': ['Zaman', 'Telefon', 'Ad Soyad', 'Önceki Formen', 'Yeni Formen', 'Yeni Çiftlik', 'İşlemi Yapan'],
-  'Bildirimler': ['Zaman', 'Alıcı Telefon', 'Tür', 'Başlık', 'Metin', 'Okundu'],
+  'Bildirimler': ['Zaman', 'Alıcı Telefon', 'Tür', 'Başlık', 'Metin', 'Okundu', 'Anlık Gönderildi'],
   // Günlük denetim görevinin yazdığı mutabakat sonuçları (uygulama yalnız okur)
   'Mutabakat': ['Tarih', 'Sonuç', 'Araç No', 'Konu', 'Açıklama', 'Kaynaklar', 'Personel', 'Kimlik']
 };
@@ -108,6 +108,7 @@ function doPost(e) {
       case 'ekipAta': return json_(ekipAta_(k, g));
       case 'isEmriVer': return json_(isEmriVer_(k, g));
       case 'bildirimKontrol': return json_(bildirimKontrol_(k, g));
+      case 'fcmKaydet': return json_(fcmKaydet_(k, g));
       case 'isEmriDurum': return json_(isEmriDurum_(k, g));
       default: return json_({ ok: false, hata: 'Bilinmeyen işlem: ' + g.tur });
     }
@@ -404,11 +405,18 @@ function oturum_(anahtar) {
 
 function bildir_(telefonlar, tur, baslik, metin) {
   var gorulen = {};
+  var liste = [];
   telefonlar.forEach(function (t) {
     t = tel_(t);
     if (!t || gorulen[t]) return;
     gorulen[t] = true;
-    ekle_('Bildirimler', [simdi_(), t, tur, baslik, metin, '']);
+    liste.push(t);
+  });
+  // Anlık bildirim (Firebase); gönderilemeyen telefon 15 dakikalık kontrolde alır.
+  var gitti = {};
+  try { gitti = anlikGonder_(liste, baslik, metin); } catch (e) {}
+  liste.forEach(function (t) {
+    ekle_('Bildirimler', [simdi_(), t, tur, baslik, metin, '', gitti[t] ? 'Evet' : '']);
   });
   var webhook = PropertiesService.getScriptProperties().getProperty('CHAT_WEBHOOK');
   if (webhook && (tur === 'Arıza' || tur === 'Arıza durumu')) {
@@ -886,9 +894,108 @@ function bildirimKontrol_(k, g) {
   var yeni = [];
   for (var i = son; i < rows.length; i++) {
     var r = rows[i];
-    if (tel_(r[1]) === k.telefon && r[5] !== 'Evet') yeni.push({ tur: r[2], baslik: r[3], metin: r[4] });
+    if (tel_(r[1]) === k.telefon && r[5] !== 'Evet' && r[6] !== 'Evet') yeni.push({ tur: r[2], baslik: r[3], metin: r[4] });
   }
   return { ok: true, son: enSon, yeni: yeni.slice(-10) };
+}
+
+// ---------------------------------------------------------------------------
+// Anlık bildirim (Firebase Cloud Messaging)
+
+/**
+ * ELLE BİR KEZ ÇALIŞTIRIN: Drive'daki "Araç Takip" klasörüne yüklenen Firebase
+ * hizmet hesabı anahtarını (…firebase-adminsdk….json) komut dosyası özelliklerine
+ * taşır. Ardından Drive'daki anahtar dosyasını silin.
+ */
+function fcmKur() {
+  var it = DriveApp.getFolderById(FOTO_KLASOR_ID).getFiles();
+  var bulunan = null;
+  while (it.hasNext()) {
+    var f = it.next();
+    if (/firebase-adminsdk.*\.json$/i.test(f.getName())) bulunan = f;
+  }
+  if (!bulunan) throw new Error('Araç Takip klasöründe firebase-adminsdk ... .json dosyası bulunamadı.');
+  var a = JSON.parse(bulunan.getBlob().getDataAsString());
+  if (!a.private_key || !a.client_email || !a.project_id) throw new Error('Dosya hizmet hesabı anahtarı değil.');
+  PropertiesService.getScriptProperties().setProperty('FCM_ANAHTAR', JSON.stringify({
+    project_id: a.project_id, client_email: a.client_email, private_key: a.private_key
+  }));
+  CacheService.getScriptCache().remove('fcm_erisim');
+  fcmErisim_(); // anahtar çalışıyor mu
+  Logger.log('Anlık bildirim kuruldu (' + a.project_id + '). Şimdi Drive\'daki "' + bulunan.getName() + '" dosyasını silin.');
+}
+
+function fcmAyar_() {
+  var j = PropertiesService.getScriptProperties().getProperty('FCM_ANAHTAR');
+  return j ? JSON.parse(j) : null;
+}
+
+function b64url_(x) { return Utilities.base64EncodeWebSafe(x).replace(/=+$/, ''); }
+
+function fcmErisim_() {
+  var c = CacheService.getScriptCache();
+  var t = c.get('fcm_erisim');
+  if (t) return t;
+  var a = fcmAyar_();
+  if (!a) return null;
+  var simdi = Math.floor(Date.now() / 1000);
+  var bas = b64url_(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
+  var govde = b64url_(JSON.stringify({
+    iss: a.client_email, scope: 'https://www.googleapis.com/auth/firebase.messaging',
+    aud: 'https://oauth2.googleapis.com/token', iat: simdi, exp: simdi + 3600
+  }));
+  var imza = b64url_(Utilities.computeRsaSha256Signature(bas + '.' + govde, a.private_key));
+  var r = UrlFetchApp.fetch('https://oauth2.googleapis.com/token', {
+    method: 'post', muteHttpExceptions: true,
+    payload: { grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer', assertion: bas + '.' + govde + '.' + imza }
+  });
+  if (r.getResponseCode() !== 200) throw new Error('Firebase erişim anahtarı alınamadı: ' + r.getContentText());
+  t = JSON.parse(r.getContentText()).access_token;
+  c.put('fcm_erisim', t, 3000);
+  return t;
+}
+
+function fcmKaydet_(k, g) {
+  var anahtar = bas_(g.anahtar);
+  hucre_('Cihazlar', k.satir, 'Bildirim Anahtarı', anahtar);
+  return { ok: true, anlik: !!fcmAyar_() };
+}
+
+/** Telefonlara anlık bildirim gönderir; telefon → gönderildi mi. */
+function anlikGonder_(telefonlar, baslik, metin) {
+  var sonuc = {};
+  if (!telefonlar.length) return sonuc;
+  var a = fcmAyar_();
+  if (!a) return sonuc;
+  var anahtarlar = {};
+  tablo_('Cihazlar').rows.forEach(function (r, i) {
+    if (r[6] === 'Onaylı' && bas_(r[10])) anahtarlar[tel_(r[0])] = { token: bas_(r[10]), satir: i + 2 };
+  });
+  var hedef = telefonlar.filter(function (t) { return anahtarlar[t]; });
+  if (!hedef.length) return sonuc;
+  var erisim = fcmErisim_();
+  var url = 'https://fcm.googleapis.com/v1/projects/' + a.project_id + '/messages:send';
+  var istekler = hedef.map(function (t) {
+    return {
+      url: url, method: 'post', contentType: 'application/json', muteHttpExceptions: true,
+      headers: { Authorization: 'Bearer ' + erisim },
+      payload: JSON.stringify({ message: {
+        token: anahtarlar[t].token,
+        notification: { title: baslik, body: metin },
+        android: { priority: 'high', notification: { channel_id: 'arac_takip', sound: 'default' } }
+      } })
+    };
+  });
+  var cevaplar = UrlFetchApp.fetchAll(istekler);
+  cevaplar.forEach(function (r, i) {
+    var t = hedef[i];
+    if (r.getResponseCode() === 200) { sonuc[t] = true; return; }
+    // Uygulama silinmiş ya da anahtar geçersiz: bir sonraki açılışta yenisi kaydedilir.
+    if (r.getResponseCode() === 404 || /UNREGISTERED|INVALID_ARGUMENT/.test(r.getContentText())) {
+      hucre_('Cihazlar', anahtarlar[t].satir, 'Bildirim Anahtarı', '');
+    }
+  });
+  return sonuc;
 }
 
 // ---------------------------------------------------------------------------
