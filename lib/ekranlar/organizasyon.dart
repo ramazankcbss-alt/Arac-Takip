@@ -79,9 +79,10 @@ class _OrganizasyonEkraniState extends State<OrganizasyonEkrani> {
     if (kaydedildi == true && mounted) setState(() {});
   }
 
-  Widget _kisi(Veri v, OrgKisi x, int derinlik, {required bool yonetici, String? disAmir}) {
+  Widget _kisi(Veri v, OrgKisi x, int derinlik, {required bool yonetici, String? disAmir, bool grup = false}) {
     final altBilgi = [
       if (x.gorev.isNotEmpty) x.gorev,
+      if (grup) x.grup,
       if (disAmir != null) 'Bağlı olduğu: $disAmir',
       'Görüş: ${x.kapsamMetni}',
     ].join(' · ');
@@ -113,10 +114,10 @@ class _OrganizasyonEkraniState extends State<OrganizasyonEkrani> {
 
   /// Kişi ve (varsa) ona bağlı olanlar; formen ekipleri kapalı başlar.
   List<Widget> _agac(Veri v, OrgKisi x, Map<String, List<OrgKisi>> altlar, int derinlik, bool yonetici,
-      Set<String> gorulen) {
+      Set<String> gorulen, {bool grup = false, int seviye = 0}) {
     if (!gorulen.add(x.telefon)) return const [];
     final cocuk = altlar[x.telefon] ?? const <OrgKisi>[];
-    if (cocuk.isEmpty) return [_kisi(v, x, derinlik, yonetici: yonetici)];
+    if (cocuk.isEmpty) return [_kisi(v, x, derinlik, yonetici: yonetici, grup: grup)];
     return [
       Padding(
         padding: EdgeInsets.only(left: derinlik * 18.0),
@@ -125,10 +126,13 @@ class _OrganizasyonEkraniState extends State<OrganizasyonEkrani> {
           child: ExpansionTile(
             tilePadding: const EdgeInsets.only(left: 4),
             childrenPadding: EdgeInsets.zero,
-            initiallyExpanded: x.kademe != 'Formen',
+            initiallyExpanded: x.kademe != 'Formen' && seviye < 4,
             leading: Icon(_ikon(x.kademe), color: _renk(x.kademe)),
             title: Text(x.ad, style: const TextStyle(fontWeight: FontWeight.w600)),
-            subtitle: Text('${x.kademe} · ${x.gorev} · ${cocuk.length} kişi bağlı · Görüş: ${x.kapsamMetni}',
+            subtitle: Text(
+                [x.kademe, x.gorev, if (grup) x.grup, '${cocuk.length} kişi bağlı', 'Görüş: ${x.kapsamMetni}']
+                    .where((e) => e.isNotEmpty)
+                    .join(' · '),
                 style: const TextStyle(fontSize: 12)),
             trailing: yonetici
                 ? Row(
@@ -145,11 +149,74 @@ class _OrganizasyonEkraniState extends State<OrganizasyonEkrani> {
                   )
                 : null,
             children: [
-              for (final c in cocuk) ..._agac(v, c, altlar, 1, yonetici, gorulen),
+              for (final c in cocuk) ..._agac(v, c, altlar, 1, yonetici, gorulen, grup: grup, seviye: seviye + 1),
             ],
           ),
         ),
       ),
+    ];
+  }
+
+  /// Tümü görünümü: üst yönetimden aşağı doğru tek hiyerarşi; amiri belirlenmemiş personel çiftlik bazında ayrı.
+  List<Widget> _hiyerarsi(Veri v, bool yonetici) {
+    final tumu = {for (final x in v.organizasyon) x.telefon: x};
+    final altlar = <String, List<OrgKisi>>{};
+    final kok = <OrgKisi>[];
+    for (final x in v.organizasyon) {
+      if (x.ust.isNotEmpty && tumu.containsKey(x.ust)) {
+        (altlar[x.ust] ??= []).add(x);
+      } else {
+        kok.add(x);
+      }
+    }
+    for (final a in altlar.values) {
+      a.sort((p, q) => _sira(v, p, q));
+    }
+    kok.sort((p, q) => _sira(v, p, q));
+    // Zincirin başı: altında personel olan ya da merkez yönetimde olan kişiler.
+    final zincir = kok.where((x) => (altlar[x.telefon] ?? const []).isNotEmpty || x.kademe == _merkez).toList();
+    final bagimsiz = kok.where((x) => !zincir.contains(x)).toList();
+    final gorulen = <String>{};
+    final gruplar = <String, List<OrgKisi>>{};
+    for (final x in bagimsiz) {
+      (gruplar[x.grup] ??= []).add(x);
+    }
+    final grupAdlari = gruplar.keys.toList()..sort();
+    return [
+      Panel(
+        baslik: 'Kurumsal hiyerarşi (${v.organizasyon.length - bagimsiz.length} kişi)',
+        padding: const EdgeInsets.fromLTRB(12, 14, 4, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (final x in zincir) ..._agac(v, x, altlar, 0, yonetici, gorulen, grup: true),
+          ],
+        ),
+      ),
+      if (bagimsiz.isNotEmpty)
+        Panel(
+          baslik: 'Bağlı olduğu amir belirlenmemiş (${bagimsiz.length} kişi)',
+          padding: const EdgeInsets.fromLTRB(12, 14, 4, 8),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (yonetici)
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 6),
+                  child: Text('Kalem simgesiyle kişiyi bağlı olduğu amire bağlayın; hiyerarşide yerini alır.',
+                      style: TextStyle(color: Renk.soluk, fontSize: 12)),
+                ),
+              for (final g in grupAdlari) ...[
+                Padding(
+                  padding: const EdgeInsets.only(top: 8, left: 4),
+                  child: Text('$g (${gruplar[g]!.length})',
+                      style: const TextStyle(fontWeight: FontWeight.w700, color: Renk.anaKoyu)),
+                ),
+                for (final x in gruplar[g]!) _kisi(v, x, 0, yonetici: yonetici),
+              ],
+            ],
+          ),
+        ),
     ];
   }
 
@@ -220,9 +287,10 @@ class _OrganizasyonEkraniState extends State<OrganizasyonEkrani> {
             children: [
               Text(
                 yonetici
-                    ? 'Personel çiftlik ve kademe sırasıyla listelenir. Kalem simgesiyle kişinin kademesini, bağlı olduğu '
-                        'amiri, çiftliğini ve görüş kapsamını düzeltebilirsiniz.'
-                    : 'Personel çiftlik ve kademe sırasıyla listelenir.',
+                    ? 'Personel üst yönetimden aşağı doğru bağlı olduğu amire göre listelenir; çiftlik seçerek o çiftliğin '
+                        'kadrosunu görebilirsiniz. Kalem simgesiyle kademe, bağlı olduğu amir, çiftlik ve görüş kapsamı düzeltilir.'
+                    : 'Personel üst yönetimden aşağı doğru bağlı olduğu amire göre listelenir; çiftlik seçerek o çiftliğin '
+                        'kadrosunu görebilirsiniz.',
                 style: const TextStyle(color: Renk.soluk, fontSize: 12),
               ),
               const SizedBox(height: 8),
@@ -236,7 +304,7 @@ class _OrganizasyonEkraniState extends State<OrganizasyonEkrani> {
                 child: Row(
                   children: [
                     ChoiceChip(
-                      label: Text('Tümü (${v.organizasyon.length})'),
+                      label: Text('Hiyerarşi (${v.organizasyon.length})'),
                       selected: _grup == null,
                       onSelected: (_) => setState(() => _grup = null),
                     ),
@@ -267,10 +335,10 @@ class _OrganizasyonEkraniState extends State<OrganizasyonEkrani> {
                     ],
                   ),
                 )
+              else if (_grup == null)
+                ..._hiyerarsi(v, yonetici)
               else
-                for (final g in gruplar)
-                  if (_grup == null || _grup == g)
-                    _grupPaneli(v, g, v.organizasyon.where((x) => x.grup == g).toList(), yonetici),
+                _grupPaneli(v, _grup!, v.organizasyon.where((x) => x.grup == _grup).toList(), yonetici),
             ],
           ),
         );
