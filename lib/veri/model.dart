@@ -6,6 +6,9 @@ double? _d(Object? v) => v is num ? v.toDouble() : double.tryParse(_s(v).replace
 List<Map<String, dynamic>> _liste(Object? v) =>
     v is List ? v.whereType<Map>().map((e) => e.cast<String, dynamic>()).toList() : const [];
 
+const sinifArac = 'Araç';
+const sinifEkipman = 'Makine-Ekipman';
+
 const rolYonetici = 'Yönetici';
 const rolFormen = 'Formen';
 const rolSorumlu = 'Makine-Ekipman Sorumlusu';
@@ -44,6 +47,7 @@ class Arac {
     required this.yil,
     required this.not,
     required this.kullanim,
+    this.sinif = sinifArac,
   });
   factory Arac.oku(Map<String, dynamic> j) => Arac(
         no: _s(j['no']),
@@ -56,12 +60,16 @@ class Arac {
         yil: _s(j['yil']),
         not: _s(j['not']),
         kullanim: (j['kullanim'] is num) ? (j['kullanim'] as num).toInt() : 0,
+        sinif: _s(j['sinif']) == sinifEkipman ? sinifEkipman : sinifArac,
       );
-  final String no, tur, model, plaka, ciftlik, durum, yil, not;
+  final String no, tur, model, plaka, ciftlik, durum, yil, not, sinif;
   final double? sayac;
   final int kullanim;
 
   bool get arizali => durum == 'Arızalı';
+  bool get ekipman => sinif == sinifEkipman;
+  /// Araçta motor saati, makine-ekipmanda birikmiş çalışma saati.
+  String get sayacAdi => ekipman ? 'Çalışma saati' : 'Motor saati';
   bool get pasif => durum == 'Pasif';
   String get baslik => [no, tur].where((x) => x.isNotEmpty).join(' · ');
   String get alt => [model, plaka, ciftlik].where((x) => x.isNotEmpty).join(' · ');
@@ -86,6 +94,7 @@ class Kullanim {
   String get durum => _s(j['durum']);
   String get onaylayan => _s(j['onaylayan']);
   String get sekil => _s(j['sekil']);
+  List<String> get ekipman => (j['ekipman'] is List) ? (j['ekipman'] as List).map(_s).where((x) => x.isNotEmpty).toList() : const [];
   bool kontrol(String alan) => _s(j[alan]) == 'Yapıldı';
   bool get bakimTam =>
       kontrol('gresleme') && kontrol('hava') && kontrol('yag') && kontrol('radyator');
@@ -112,6 +121,8 @@ class Ariza {
   String get guncelleme => _s(j['guncelleme']);
   String get not => _s(j['not']);
   bool get kapali => durum == 'Onarıldı' || durum == 'Geçersiz bildirim';
+  String get yer => _s(j['yer']).isEmpty ? sinifArac : _s(j['yer']);
+  String get birlikte => _s(j['birlikte']);
 }
 
 class BakimUyari {
@@ -244,8 +255,8 @@ class Veri {
 
   /// İş başlatma listesi: personelin en sık kullandığı araçlar başta, ardından
   /// kendi çiftliğinin araçları, sonra diğerleri; pasif araçlar listelenmez.
-  List<Arac> secimListesi() {
-    final l = araclar.where((a) => !a.pasif).toList();
+  List<Arac> secimListesi({bool ekipman = false}) {
+    final l = araclar.where((a) => !a.pasif && a.ekipman == ekipman).toList();
     l.sort((x, y) {
       final k = y.kullanim.compareTo(x.kullanim);
       if (k != 0) return k;
@@ -266,11 +277,35 @@ const aracTurleri = [
   'Manitou / Teleskopik Yükleyici',
   'Kepçe / Loder',
   'Biçerdöver',
-  'Pancar Söküm Makinesi',
-  'Silaj Makinesi',
-  'Yem Karma Vagonu',
+  'Pancar Söküm Makinesi (kendi yürür)',
+  'Silaj Makinesi (kendi yürür)',
+  'Yem Karma Vagonu (kendi yürür)',
   'Forklift',
   'Pick-up / Binek',
+  'Diğer',
+];
+
+/// Araca bağlanan makine ve ekipman türleri.
+const ekipmanTurleri = [
+  'Pulluk',
+  'Kültivatör',
+  'Diskaro',
+  'Rotovatör',
+  'Merdane',
+  'Mibzer',
+  'Pnömatik Mibzer',
+  'Gübre Serpme Makinesi',
+  'İlaçlama Makinesi',
+  'Römork',
+  'Tanker',
+  'Çayır Biçme Makinesi',
+  'Tırmık',
+  'Balya Makinesi',
+  'Silaj Makinesi (çekilir)',
+  'Pancar Söküm Makinesi (çekilir)',
+  'Yem Karma Vagonu (çekilir)',
+  'Gübre Tankeri / Fıçısı',
+  'Kar / Sıyırma Bıçağı',
   'Diğer',
 ];
 

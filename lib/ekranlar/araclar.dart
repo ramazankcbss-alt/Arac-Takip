@@ -15,6 +15,7 @@ class AraclarSayfasi extends StatefulWidget {
 
 class _AraclarSayfasiState extends State<AraclarSayfasi> {
   String _ara = '';
+  bool _ekipman = false;
 
   @override
   Widget build(BuildContext context) {
@@ -22,16 +23,17 @@ class _AraclarSayfasiState extends State<AraclarSayfasi> {
     final sorumlu = v.kisi.sorumlu;
     final q = _ara.toLowerCase();
     final liste = v.araclar
+        .where((a) => a.ekipman == _ekipman)
         .where((a) => q.isEmpty || '${a.no} ${a.tur} ${a.model} ${a.plaka} ${a.ciftlik}'.toLowerCase().contains(q))
         .toList()
       ..sort((x, y) => x.no.compareTo(y.no));
     return Scaffold(
       floatingActionButton: sorumlu
           ? FloatingActionButton.extended(
-              onPressed: () =>
-                  Navigator.push(context, MaterialPageRoute(builder: (_) => const AracFormu())),
+              onPressed: () => Navigator.push(
+                  context, MaterialPageRoute(builder: (_) => AracFormu(sinif: _ekipman ? sinifEkipman : sinifArac))),
               icon: const Icon(Icons.add),
-              label: const Text('Araç Ekle'),
+              label: Text(_ekipman ? 'Makine Ekle' : 'Araç Ekle'),
             )
           : null,
       body: YenilenirListe(
@@ -68,19 +70,37 @@ class _AraclarSayfasiState extends State<AraclarSayfasi> {
                     ListTile(
                       contentPadding: EdgeInsets.zero,
                       leading: const Icon(Icons.play_circle, color: Renk.mavi),
-                      title: Text('${x.arac} · ${x.personel}'),
+                      title: Text('${[x.arac, ...x.ekipman].join(' + ')} · ${x.personel}'),
                       subtitle: Text('${x.baslangic}${x.is_.isEmpty ? '' : ' · ${x.is_}'}'),
                     ),
                 ],
               ),
             ),
+          SegmentedButton<bool>(
+            segments: [
+              ButtonSegment(
+                  value: false,
+                  icon: const Icon(Icons.agriculture_outlined),
+                  label: Text('Araçlar (${v.araclar.where((a) => !a.ekipman).length})')),
+              ButtonSegment(
+                  value: true,
+                  icon: const Icon(Icons.construction_outlined),
+                  label: Text('Makine-Ekipman (${v.araclar.where((a) => a.ekipman).length})')),
+            ],
+            selected: {_ekipman},
+            onSelectionChanged: (x) => setState(() => _ekipman = x.first),
+          ),
+          const SizedBox(height: 8),
           TextField(
-            decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: 'Araç ara'),
+            decoration: InputDecoration(
+                prefixIcon: const Icon(Icons.search), hintText: _ekipman ? 'Makine-ekipman ara' : 'Araç ara'),
             onChanged: (s) => setState(() => _ara = s),
           ),
           const SizedBox(height: 8),
           if (liste.isEmpty)
-            const Bos('Henüz araç kaydı yok. "Araç Ekle" ile başlayın.')
+            Bos(_ekipman
+                ? 'Henüz makine-ekipman kaydı yok. "Makine Ekle" ile pulluk, mibzer, römork gibi ekipmanları ekleyin.'
+                : 'Henüz araç kaydı yok. "Araç Ekle" ile başlayın.')
           else
             for (final a in liste)
               Card(
@@ -89,8 +109,10 @@ class _AraclarSayfasiState extends State<AraclarSayfasi> {
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12), side: const BorderSide(color: Renk.cizgi)),
                 child: ListTile(
+                  leading: Icon(a.ekipman ? Icons.construction_outlined : Icons.agriculture_outlined,
+                      color: a.arizali ? Renk.kirmizi : Renk.ana),
                   title: Text(a.baslik, style: const TextStyle(fontWeight: FontWeight.w600)),
-                  subtitle: Text('${a.alt}\nMotor saati: ${sayiYaz(a.sayac)}'),
+                  subtitle: Text('${a.alt}\n${a.sayacAdi}: ${sayiYaz(a.sayac)}'),
                   isThreeLine: true,
                   trailing: Rozet.durum(a.durum),
                   onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => AracDetay(no: a.no))),
@@ -150,10 +172,11 @@ class AracDetay extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     BilgiSatiri('Marka / Model', a.model),
-                    BilgiSatiri('Plaka / Şase No', a.plaka),
+                    BilgiSatiri('Sınıf', a.sinif),
+                    BilgiSatiri(a.ekipman ? 'Seri / Şase No' : 'Plaka / Şase No', a.plaka),
                     BilgiSatiri('Model yılı', a.yil),
                     BilgiSatiri('Çiftlik', a.ciftlik),
-                    BilgiSatiri('Motor saati', sayiYaz(a.sayac)),
+                    BilgiSatiri(a.sayacAdi, sayiYaz(a.sayac)),
                     if (a.not.isNotEmpty) BilgiSatiri('Not', a.not),
                   ],
                 ),
@@ -191,7 +214,8 @@ class AracDetay extends StatelessWidget {
                             ListTile(
                               contentPadding: EdgeInsets.zero,
                               title: Text(x.aciklama, maxLines: 2, overflow: TextOverflow.ellipsis),
-                              subtitle: Text('${x.zaman} · ${x.bildiren}'),
+                              subtitle: Text([x.zaman, x.bildiren, if (x.birlikte.isNotEmpty) 'Birlikte: ${x.birlikte}']
+                                  .join(' · ')),
                               trailing: Rozet.durum(x.durum),
                             ),
                         ],
@@ -242,9 +266,9 @@ class AracDetay extends StatelessWidget {
           children: [
             TextField(controller: ad, enabled: p == null, decoration: const InputDecoration(labelText: 'Bakım türü')),
             const SizedBox(height: 8),
-            SayiAlani(kontrol: per, etiket: 'Periyot (motor saati)'),
+            SayiAlani(kontrol: per, etiket: 'Periyot (çalışma saati)'),
             const SizedBox(height: 8),
-            SayiAlani(kontrol: son, etiket: 'Son yapıldığı motor saati'),
+            SayiAlani(kontrol: son, etiket: 'Son yapıldığı saat (sayaç)'),
           ],
         ),
         actions: [
@@ -270,8 +294,9 @@ class AracDetay extends StatelessWidget {
 
 /// Araç ekleme / düzenleme (Makine-Ekipman Sorumlusu).
 class AracFormu extends StatefulWidget {
-  const AracFormu({super.key, this.arac});
+  const AracFormu({super.key, this.arac, this.sinif = sinifArac});
   final Arac? arac;
+  final String sinif;
 
   @override
   State<AracFormu> createState() => _AracFormuState();
@@ -287,6 +312,7 @@ class _AracFormuState extends State<AracFormu> {
   late String? _tur = widget.arac?.tur;
   late String? _ciftlik = widget.arac?.ciftlik;
   late String _durum = widget.arac?.durum ?? 'Aktif';
+  late final bool _ekipman = widget.arac?.ekipman ?? widget.sinif == sinifEkipman;
 
   @override
   void dispose() {
@@ -300,6 +326,7 @@ class _AracFormuState extends State<AracFormu> {
     final j = await islem(context, 'aracKaydet', {
       'arac': {
         'yeni': widget.arac == null,
+        'sinif': _ekipman ? sinifEkipman : sinifArac,
         'no': _no.text.trim(),
         'tur': _tur ?? '',
         'model': _model.text.trim(),
@@ -310,7 +337,7 @@ class _AracFormuState extends State<AracFormu> {
         'yil': _yil.text.trim(),
         'not': _not.text.trim(),
       },
-    }, basari: widget.arac == null ? 'Araç eklendi. Varsayılan bakım planı oluşturuldu.' : 'Araç güncellendi.');
+    }, basari: widget.arac == null ? 'Kayıt eklendi. Varsayılan bakım planı oluşturuldu.' : 'Kayıt güncellendi.');
     if (j != null && mounted) Navigator.pop(context);
   }
 
@@ -318,9 +345,10 @@ class _AracFormuState extends State<AracFormu> {
   Widget build(BuildContext context) {
     final v = Depo.ben.veri!;
     final ciftlikler = {...v.ciftlikler, if (_ciftlik != null && _ciftlik!.isNotEmpty) _ciftlik!}.toList()..sort();
-    final turler = {...aracTurleri, if (_tur != null && _tur!.isNotEmpty) _tur!}.toList();
+    final turler = {...(_ekipman ? ekipmanTurleri : aracTurleri), if (_tur != null && _tur!.isNotEmpty) _tur!}.toList();
+    final ad = _ekipman ? 'Makine-Ekipman' : 'Araç';
     return Scaffold(
-      appBar: AppBar(title: Text(widget.arac == null ? 'Araç Ekle' : 'Araç Düzenle')),
+      appBar: AppBar(title: Text(widget.arac == null ? '$ad Ekle' : '$ad Düzenle')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -328,9 +356,11 @@ class _AracFormuState extends State<AracFormu> {
             controller: _no,
             enabled: widget.arac == null,
             textCapitalization: TextCapitalization.characters,
-            decoration: const InputDecoration(
-              labelText: 'Araç no (kısa ad)',
-              helperText: 'Örnek: TRK-07, KMY-34, MNT-02. Sonradan değiştirilemez.',
+            decoration: InputDecoration(
+              labelText: '$ad no (kısa ad)',
+              helperText: _ekipman
+                  ? 'Örnek: PLK-02 (pulluk), MBZ-01 (mibzer), RMK-05 (römork). Sonradan değiştirilemez.'
+                  : 'Örnek: TRK-07, KMY-34, MNT-02. Sonradan değiştirilemez.',
             ),
           ),
           const SizedBox(height: 12),
@@ -347,7 +377,7 @@ class _AracFormuState extends State<AracFormu> {
           TextField(
             controller: _plaka,
             textCapitalization: TextCapitalization.characters,
-            decoration: const InputDecoration(labelText: 'Plaka / Şase No'),
+            decoration: InputDecoration(labelText: _ekipman ? 'Seri / Şase No' : 'Plaka / Şase No'),
           ),
           const SizedBox(height: 12),
           TextField(
@@ -364,7 +394,15 @@ class _AracFormuState extends State<AracFormu> {
             onChanged: (s) => setState(() => _ciftlik = s),
           ),
           const SizedBox(height: 12),
-          SayiAlani(kontrol: _sayac, etiket: 'Güncel motor saati'),
+          SayiAlani(
+              kontrol: _sayac,
+              etiket: _ekipman ? 'Bugüne kadarki çalışma saati (biliniyorsa)' : 'Güncel motor saati'),
+          if (_ekipman)
+            const Padding(
+              padding: EdgeInsets.only(top: 4),
+              child: Text('Çalışma saati, bağlandığı aracın iş süresinden kendiliğinden artar.',
+                  style: TextStyle(color: Renk.soluk, fontSize: 12)),
+            ),
           const SizedBox(height: 12),
           SegmentedButton<String>(
             segments: const [

@@ -90,6 +90,8 @@ class _BaslatFormu extends StatefulWidget {
 class _BaslatFormuState extends State<_BaslatFormu> {
   late final _sayac = TextEditingController(text: widget.arac.sayac == null ? '' : sayiYaz(widget.arac.sayac));
   String? _is;
+  final _ekipman = <String>{};
+  bool _tumEkipman = false;
 
   @override
   void dispose() {
@@ -108,6 +110,7 @@ class _BaslatFormuState extends State<_BaslatFormu> {
         'arac': widget.arac.no,
         'sayac': s,
         'is': _is ?? '',
+        'ekipman': _ekipman.toList(),
         'arizaliOnay': arizaliOnay,
       });
       await Depo.ben.yenile();
@@ -122,10 +125,8 @@ class _BaslatFormuState extends State<_BaslatFormu> {
           context: context,
           builder: (ctx) => AlertDialog(
             icon: const Icon(Icons.warning_amber_rounded, color: Renk.kirmizi),
-            title: const Text('Araç arızalı kayıtlı'),
-            content: const Text(
-                'Bu araç için açık bir arıza bildirimi var. Arızalı ekipmanın kullanılmaması gerekir. '
-                'Formeninizin talimatıyla yine de başlatmak istiyor musunuz?'),
+            title: const Text('Arızalı kayıt'),
+            content: Text('${e.mesaj}\n\nFormeninizin talimatıyla yine de başlatmak istiyor musunuz?'),
             actions: [
               TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Vazgeç')),
               FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Talimatla başlat')),
@@ -139,11 +140,45 @@ class _BaslatFormuState extends State<_BaslatFormu> {
     }
   }
 
+  /// Araca bağlanan makine-ekipman: sık kullanılanlar ve aynı çiftliktekiler önde.
+  List<Widget> _ekipmanSecimi() {
+    final v = Depo.ben.veri!;
+    final tum = v.secimListesi(ekipman: true);
+    if (tum.isEmpty) return const [];
+    final gosterilen = _tumEkipman ? tum : tum.take(8).toList();
+    for (final n in _ekipman) {
+      if (!gosterilen.any((a) => a.no == n)) gosterilen.add(tum.firstWhere((a) => a.no == n));
+    }
+    return [
+      const Text('Bağlı makine-ekipman (varsa seçin)', style: TextStyle(color: Renk.soluk)),
+      const SizedBox(height: 6),
+      Wrap(
+        spacing: 6,
+        runSpacing: 6,
+        children: [
+          for (final a in gosterilen)
+            FilterChip(
+              avatar: Icon(Icons.construction_outlined, size: 18, color: a.arizali ? Renk.kirmizi : null),
+              label: Text(a.tur.isEmpty ? a.no : '${a.no} · ${a.tur}'),
+              selected: _ekipman.contains(a.no),
+              onSelected: (s) => setState(() => s ? _ekipman.add(a.no) : _ekipman.remove(a.no)),
+            ),
+          if (!_tumEkipman && tum.length > 8)
+            ActionChip(
+              label: Text('Tümü (${tum.length})'),
+              onPressed: () => setState(() => _tumEkipman = true),
+            ),
+        ],
+      ),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + MediaQuery.of(context).viewInsets.bottom),
-      child: Column(
+      child: SingleChildScrollView(
+       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -151,6 +186,8 @@ class _BaslatFormuState extends State<_BaslatFormu> {
           Text(widget.arac.alt, style: const TextStyle(color: Renk.soluk)),
           const SizedBox(height: 16),
           SayiAlani(kontrol: _sayac, etiket: 'Motor saati (sayaç)', ipucu: 'Göstergedeki değeri yazın'),
+          const SizedBox(height: 12),
+          ..._ekipmanSecimi(),
           const SizedBox(height: 12),
           const Text('Yapılacak iş (isteğe bağlı)', style: TextStyle(color: Renk.soluk)),
           const SizedBox(height: 6),
@@ -174,6 +211,7 @@ class _BaslatFormuState extends State<_BaslatFormu> {
             label: const Text('İşi Başlat', style: TextStyle(fontSize: 17)),
           ),
         ],
+       ),
       ),
     );
   }

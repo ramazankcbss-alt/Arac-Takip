@@ -16,18 +16,18 @@ var PIN_DENEME_SINIRI = 5;
 
 var BASLIKLAR = {
   'Araçlar': ['Araç No', 'Tür', 'Marka / Model', 'Plaka / Şase No', 'Çiftlik', 'Motor Saati',
-    'Durum', 'Model Yılı', 'Not', 'Ekleyen', 'Eklenme', 'Güncelleme'],
+    'Durum', 'Model Yılı', 'Not', 'Ekleyen', 'Eklenme', 'Güncelleme', 'Sınıf'],
   'Kullanım': ['Kayıt No', 'Tarih', 'Araç No', 'Personel', 'Telefon', 'Çiftlik', 'Başlangıç',
     'Bitiş', 'Başlangıç Sayacı', 'Bitiş Sayacı', 'Çalışma (saat)', 'İş', 'Gresleme',
     'Hava Filtresi', 'Motor Yağı', 'Radyatör', 'Not', 'Durum', 'Onaylayan', 'Onay Zamanı',
-    'Kayıt Şekli', 'Sorumlu Formen'],
+    'Kayıt Şekli', 'Sorumlu Formen', 'Makine-Ekipman'],
   'Bakım_Plan': ['Araç No', 'Bakım Türü', 'Periyot (saat)', 'Son Yapılan (saat)', 'Son Yapılan Tarih'],
   'Bakım_Kayıt': ['Kayıt No', 'Tarih', 'Araç No', 'Kayıt Türü', 'Bakım Türü', 'Motor Saati',
     'Yapılan İş', 'Değişen Parça', 'Firma / Atölye', 'Tutar (TL)', 'Belge No', 'Giren',
     'Giriş Zamanı'],
   'Arıza': ['Arıza No', 'Bildirim Zamanı', 'Araç No', 'Bildiren', 'Telefon', 'Çiftlik',
     'Açıklama', 'Fotoğraf', 'Durum', 'Son Güncelleyen', 'Son Güncelleme', 'Onarım Notu',
-    'Kapanış Zamanı'],
+    'Kapanış Zamanı', 'Arıza Yeri', 'Birlikte Kullanılan'],
   'Cihazlar': ['Telefon', 'Ad Soyad', 'Cihaz Kimliği', 'Cihaz Adı', 'Oturum Anahtarı',
     'PIN Özeti', 'Durum', 'Onaylayan', 'Talep Zamanı', 'Onay Zamanı'],
   'Roller': ['Telefon', 'Ad Soyad', 'Rol', 'Çiftlik', 'Not'],
@@ -44,6 +44,15 @@ var VARSAYILAN_PLAN = [
   ['Hava filtresi', 500],
   ['Yakıt filtresi', 500],
   ['Hidrolik yağ ve filtre', 1000]
+];
+
+// Araçlar sayfasında iki sınıf tutulur: motorlu araçlar ve araca bağlanan makine-ekipman.
+var SINIF_ARAC = 'Araç';
+var SINIF_EKIPMAN = 'Makine-Ekipman';
+// Makine-ekipmanın çalışma saati, bağlandığı aracın çalışma süresinden birikir.
+var VARSAYILAN_PLAN_EKIPMAN = [
+  ['Gresleme ve bağlantı noktaları kontrolü', 50],
+  ['Aşınan parça kontrolü (uç, disk, bıçak, zincir)', 200]
 ];
 
 var ROL_YONETICI = 'Yönetici';
@@ -390,7 +399,7 @@ function cihazBildir_(telefon, ad, ciftlik) {
 function araclar_() {
   return tablo_('Araçlar').rows.filter(function (r) { return bas_(r[0]); }).map(function (r) {
     return { no: r[0], tur: r[1], model: r[2], plaka: r[3], ciftlik: r[4], sayac: sayi_(r[5]),
-      durum: r[6] || 'Aktif', yil: r[7], not: r[8] };
+      durum: r[6] || 'Aktif', yil: r[7], not: r[8], sinif: r[12] || SINIF_ARAC };
   });
 }
 
@@ -398,7 +407,8 @@ function kullanimNesne_(r, i) {
   return { satir: i + 2, no: r[0], tarih: r[1], arac: r[2], personel: r[3], telefon: r[4], ciftlik: r[5],
     baslangic: r[6], bitis: r[7], sayac1: sayi_(r[8]), sayac2: sayi_(r[9]), saat: sayi_(r[10]), is: r[11],
     gresleme: r[12], hava: r[13], yag: r[14], radyator: r[15], not: r[16], durum: r[17],
-    onaylayan: r[18], onayZamani: r[19], sekil: r[20], formen: r[21] || '' };
+    onaylayan: r[18], onayZamani: r[19], sekil: r[20], formen: r[21] || '',
+    ekipman: bas_(r[22]) ? bas_(r[22]).split(/\s*,\s*/) : [] };
 }
 
 function bakimUyarilari_(araclar) {
@@ -427,7 +437,10 @@ function veri_(k) {
   var kul = tablo_('Kullanım').rows.map(kullanimNesne_);
   // Personelin araç kullanım sıklığı: sık kullanılan araç listenin başında.
   var sayim = {};
-  kul.forEach(function (x) { if (x.telefon === k.telefon) sayim[x.arac] = (sayim[x.arac] || 0) + 1; });
+  kul.forEach(function (x) {
+    if (x.telefon !== k.telefon) return;
+    [x.arac].concat(x.ekipman).forEach(function (n) { sayim[n] = (sayim[n] || 0) + 1; });
+  });
   araclar.forEach(function (a) { a.kullanim = sayim[a.no] || 0; });
   var acik = kul.filter(function (x) { return x.telefon === k.telefon && x.durum === 'Devam ediyor'; });
   var benim = kul.filter(function (x) { return x.telefon === k.telefon; }).slice(-30).reverse();
@@ -437,7 +450,8 @@ function veri_(k) {
     .map(function (r) { return { zaman: r[0], tur: r[2], baslik: r[3], metin: r[4], okundu: r[5] === 'Evet' }; });
   var arizalar = tablo_('Arıza').rows.map(function (r, i) {
     return { satir: i + 2, no: r[0], zaman: r[1], arac: r[2], bildiren: r[3], telefon: r[4], ciftlik: r[5],
-      aciklama: r[6], foto: r[7], durum: r[8], guncelleyen: r[9], guncelleme: r[10], not: r[11], kapanis: r[12] };
+      aciklama: r[6], foto: r[7], durum: r[8], guncelleyen: r[9], guncelleme: r[10], not: r[11], kapanis: r[12],
+      yer: r[13] || SINIF_ARAC, birlikte: r[14] || '' };
   });
   var o = {
     ok: true, durum: 'Onaylı', kisi: kisiOzeti_(k), zaman: simdi_(),
@@ -498,6 +512,19 @@ function isBaslat_(k, g) {
   if (a.row[6] === 'Arızalı') {
     if (!g.arizaliOnay) return { ok: false, arizali: true, hata: 'Bu araç arızalı olarak kayıtlı. Kullanılmaması gerekir.' };
   }
+  if ((a.row[12] || SINIF_ARAC) === SINIF_EKIPMAN) return { ok: false, hata: a.row[0] + ' bir makine-ekipman; önce aracı seçin.' };
+  var ekipman = [];
+  var ekipArizali = [];
+  var istenen = Array.isArray(g.ekipman) ? g.ekipman : [];
+  for (var i = 0; i < istenen.length; i++) {
+    var e = aracBul_(bas_(istenen[i]));
+    if (!e) return { ok: false, hata: 'Makine-ekipman bulunamadı: ' + istenen[i] };
+    ekipman.push(e.row[0]);
+    if (e.row[6] === 'Arızalı') ekipArizali.push(e.row[0]);
+  }
+  if (ekipArizali.length && !g.arizaliOnay) {
+    return { ok: false, arizali: true, hata: 'Arızalı kayıtlı makine-ekipman: ' + ekipArizali.join(', ') + '. Kullanılmaması gerekir.' };
+  }
   var kul = tablo_('Kullanım').rows.map(kullanimNesne_);
   if (kul.some(function (x) { return x.telefon === k.telefon && x.durum === 'Devam ediyor'; })) {
     return { ok: false, hata: 'Devam eden bir işiniz var. Önce onu bitirin.' };
@@ -506,9 +533,13 @@ function isBaslat_(k, g) {
   var sayac = sayi_(g.sayac);
   var no = yeniNo_('Kullanım', 'K');
   ekle_('Kullanım', [no, bugun_(), a.row[0], k.ad, k.telefon, a.row[4], simdi_(), '',
-    sayac == null ? '' : sayac, '', '', bas_(g.is), '', '', '', '', bas_(g.not), 'Devam ediyor', '', '', 'Personel', formenOf_(k.telefon)]);
+    sayac == null ? '' : sayac, '', '', bas_(g.is), '', '', '', '', bas_(g.not), 'Devam ediyor', '', '', 'Personel', formenOf_(k.telefon), ekipman.join(', ')]);
   if (sayac != null && (sayi_(a.row[5]) || 0) < sayac) hucre_('Araçlar', a.satir, 'Motor Saati', sayac);
   var uyari = baska.length ? 'Bu araç sistemde ' + baska[0].personel + ' adına açık görünüyor; formen akşam düzeltecek.' : '';
+  ekipman.forEach(function (n) {
+    var d = kul.filter(function (x) { return x.durum === 'Devam ediyor' && x.ekipman.indexOf(n) >= 0; })[0];
+    if (d) uyari += (uyari ? ' ' : '') + n + ' sistemde ' + d.personel + ' adına açık görünüyor.';
+  });
   return { ok: true, no: no, uyari: uyari };
 }
 
@@ -536,13 +567,23 @@ function isBitir_(k, g) {
     hucre_('Araçlar', a.satir, 'Motor Saati', s2);
     hucre_('Araçlar', a.satir, 'Güncelleme', simdi_());
   }
+  // Bağlı makine-ekipmanın çalışma saati aracın çalışma süresi kadar artar.
+  var calisma = s1 != null && s2 != null ? Math.round((s2 - s1) * 10) / 10 : null;
+  if (calisma != null && calisma > 0 && bas_(row[22])) {
+    bas_(row[22]).split(/\s*,\s*/).forEach(function (n) {
+      var e = aracBul_(n);
+      if (!e) return;
+      hucre_('Araçlar', e.satir, 'Motor Saati', Math.round(((sayi_(e.row[5]) || 0) + calisma) * 10) / 10);
+      hucre_('Araçlar', e.satir, 'Güncelleme', simdi_());
+    });
+  }
   var eksik = !(g.gresleme && g.hava && g.yag && g.radyator);
   return { ok: true, eksik: eksik };
 }
 
 function ariza_(k, g) {
   var a = aracBul_(bas_(g.arac));
-  if (!a) return { ok: false, hata: 'Araç bulunamadı.' };
+  if (!a) return { ok: false, hata: 'Araç ya da makine-ekipman bulunamadı.' };
   var aciklama = bas_(g.aciklama);
   if (!aciklama && !g.foto) return { ok: false, hata: 'Kısa bir açıklama yazın ya da fotoğraf ekleyin.' };
   var no = yeniNo_('Arıza', 'A');
@@ -552,12 +593,16 @@ function ariza_(k, g) {
     var f = DriveApp.getFolderById(FOTO_KLASOR_ID).createFile(blob);
     link = f.getUrl();
   }
-  ekle_('Arıza', [no, simdi_(), a.row[0], k.ad, k.telefon, a.row[4], aciklama, link, 'Bildirildi', k.ad, simdi_(), '', '']);
+  var yer = a.row[12] || SINIF_ARAC;
+  ekle_('Arıza', [no, simdi_(), a.row[0], k.ad, k.telefon, a.row[4], aciklama, link, 'Bildirildi', k.ad, simdi_(), '', '',
+    yer, bas_(g.birlikte)]);
   hucre_('Araçlar', a.satir, 'Durum', 'Arızalı');
   hucre_('Araçlar', a.satir, 'Güncelleme', simdi_());
   var arac = a.row[0] + ' (' + [a.row[1], a.row[2]].filter(String).join(' ') + ')';
-  bildir_(rolTelefonlari_([ROL_FORMEN, ROL_BAKIM, ROL_SORUMLU], a.row[4]), 'Arıza',
-    'Arıza bildirimi: ' + arac, k.ad + ' – ' + simdi_() + '\n' + (aciklama || 'Fotoğraflı bildirim') + (link ? '\n' + link : ''));
+  var formen = formenOf_(k.telefon);
+  bildir_(rolTelefonlari_([ROL_FORMEN, ROL_BAKIM, ROL_SORUMLU], a.row[4]).concat(formen ? [formen] : []), 'Arıza',
+    'Arıza bildirimi (' + (yer === SINIF_EKIPMAN ? 'makine-ekipman' : 'araç') + '): ' + arac +
+      (bas_(g.birlikte) ? ' – birlikte: ' + bas_(g.birlikte) : ''), k.ad + ' – ' + simdi_() + '\n' + (aciklama || 'Fotoğraflı bildirim') + (link ? '\n' + link : ''));
   return { ok: true, no: no };
 }
 
@@ -742,23 +787,25 @@ function aracKaydet_(k, g) {
   if (!yetki_(k, 'sorumlu')) return { ok: false, hata: 'Bu işlem Makine-Ekipman Sorumlusu yetkisi gerektirir.' };
   var d = g.arac || {};
   var no = buyuk_(d.no).replace(/\s+/g, ' ');
-  if (!no) return { ok: false, hata: 'Araç numarası (kısa ad) zorunlu. Örnek: TRK-07' };
-  if (!bas_(d.tur)) return { ok: false, hata: 'Araç türünü seçin.' };
+  var sinif = bas_(d.sinif) === SINIF_EKIPMAN ? SINIF_EKIPMAN : SINIF_ARAC;
+  if (!no) return { ok: false, hata: 'Kayıt numarası (kısa ad) zorunlu. Örnek: TRK-07 ya da PLK-02' };
+  if (!bas_(d.tur)) return { ok: false, hata: 'Türü seçin.' };
   if (!bas_(d.ciftlik)) return { ok: false, hata: 'Çiftliği seçin.' };
   var var_ = aracBul_(no);
   var sayac = sayi_(d.sayac);
   var satir = [no, bas_(d.tur), bas_(d.model), buyuk_(d.plaka), bas_(d.ciftlik), sayac == null ? '' : sayac,
     bas_(d.durum) || 'Aktif', bas_(d.yil), bas_(d.not)];
   if (var_) {
-    if (d.yeni) return { ok: false, hata: no + ' numaralı araç zaten kayıtlı.' };
+    if (d.yeni) return { ok: false, hata: no + ' numarası zaten kayıtlı.' };
     var sh = ss_().getSheetByName('Araçlar');
     sh.getRange(var_.satir, 1, 1, satir.length).setValues([satir.map(String)]);
     hucre_('Araçlar', var_.satir, 'Güncelleme', simdi_());
+    hucre_('Araçlar', var_.satir, 'Sınıf', sinif);
   } else {
-    ekle_('Araçlar', satir.concat([k.ad, simdi_(), simdi_()]));
+    ekle_('Araçlar', satir.concat([k.ad, simdi_(), simdi_(), sinif]));
     // Varsayılan periyodik bakım planı (sonradan düzenlenebilir).
     if (!tablo_('Bakım_Plan').rows.some(function (r) { return r[0] === no; })) {
-      VARSAYILAN_PLAN.forEach(function (p) { ekle_('Bakım_Plan', [no, p[0], p[1], sayac == null ? '' : sayac, bugun_()]); });
+      (sinif === SINIF_EKIPMAN ? VARSAYILAN_PLAN_EKIPMAN : VARSAYILAN_PLAN).forEach(function (p) { ekle_('Bakım_Plan', [no, p[0], p[1], sayac == null ? '' : sayac, bugun_()]); });
     }
   }
   if (bas_(d.durum) === 'Aktif' && var_ && var_.row[6] === 'Arızalı') {

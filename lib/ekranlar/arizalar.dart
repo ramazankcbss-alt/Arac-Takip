@@ -42,7 +42,7 @@ class _ArizaSatiri extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListTile(
       contentPadding: EdgeInsets.zero,
-      title: Text('${a.arac} · ${a.aciklama}', maxLines: 2, overflow: TextOverflow.ellipsis),
+      title: Text('${a.yer == sinifEkipman ? 'Makine-ekipman' : 'Araç'} ${a.arac} · ${a.aciklama}', maxLines: 2, overflow: TextOverflow.ellipsis),
       subtitle: Text('${a.zaman} · ${a.bildiren}'
           '${a.guncelleme.isNotEmpty && a.guncelleme != a.zaman ? '\nSon: ${a.guncelleyen}, ${a.guncelleme}' : ''}'),
       isThreeLine: a.guncelleme.isNotEmpty && a.guncelleme != a.zaman,
@@ -86,6 +86,8 @@ class _ArizaDetayState extends State<_ArizaDetay> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text('Arıza ${a.no} · ${a.arac}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+            Text('Arıza yeri: ${a.yer}${a.birlikte.isEmpty ? '' : ' · birlikte kullanılan: ${a.birlikte}'}',
+                style: const TextStyle(color: Renk.soluk)),
             const SizedBox(height: 8),
             BilgiSatiri('Bildiren', a.bildiren),
             BilgiSatiri('Zaman', a.zaman),

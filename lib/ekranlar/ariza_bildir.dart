@@ -6,13 +6,16 @@ import 'package:image_picker/image_picker.dart';
 
 import '../servis/api.dart';
 import '../tema.dart';
+import '../veri/model.dart';
 import 'bilesen.dart';
 
 /// Arıza bildirimi: araç, kısa açıklama, isteğe bağlı fotoğraf. Formene ve
 /// bakım-onarım personeline bildirim gider.
 class ArizaBildirEkrani extends StatefulWidget {
-  const ArizaBildirEkrani({super.key, this.onSecili});
+  const ArizaBildirEkrani({super.key, this.onSecili, this.birlikte = const []});
   final String? onSecili;
+  /// Devam eden işte araca bağlı makine-ekipman (arıza yeri seçimi için).
+  final List<String> birlikte;
 
   @override
   State<ArizaBildirEkrani> createState() => _ArizaBildirEkraniState();
@@ -58,15 +61,17 @@ class _ArizaBildirEkraniState extends State<ArizaBildirEkrani> {
 
   Future<void> _gonder() async {
     if (_arac == null) {
-      bildir(context, 'Aracı seçin.');
+      bildir(context, 'Arızanın araçta mı makine-ekipmanda mı olduğunu seçin.');
       return;
     }
     if (_aciklama.text.trim().isEmpty && _foto == null) {
       bildir(context, 'Kısa bir açıklama yazın ya da fotoğraf çekin.');
       return;
     }
+    final grup = [if (widget.onSecili != null) widget.onSecili!, ...widget.birlikte];
     final j = await islem(context, 'ariza', {
       'arac': _arac,
+      'birlikte': grup.where((x) => x != _arac).join(', '),
       'aciklama': _aciklama.text.trim(),
       if (_foto != null) 'foto': base64Encode(_foto!),
     }, basari: 'Arıza bildirildi. Formen ve bakım-onarım personeline iletildi.');
@@ -76,22 +81,43 @@ class _ArizaBildirEkraniState extends State<ArizaBildirEkrani> {
   @override
   Widget build(BuildContext context) {
     final v = Depo.ben.veri!;
-    final araclar = v.secimListesi();
+    final araclar = [...v.secimListesi(), ...v.secimListesi(ekipman: true)];
+    final grup = [if (widget.onSecili != null) widget.onSecili!, ...widget.birlikte]
+        .map(v.arac)
+        .whereType<Arac>()
+        .toList();
     return Scaffold(
       appBar: AppBar(title: const Text('Arıza Bildirimi')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          DropdownButtonFormField<String>(
-            initialValue: araclar.any((a) => a.no == _arac) ? _arac : null,
-            isExpanded: true,
-            decoration: const InputDecoration(labelText: 'Araç'),
-            items: [
-              for (final a in araclar)
-                DropdownMenuItem(value: a.no, child: Text('${a.baslik} – ${a.ciftlik}', overflow: TextOverflow.ellipsis)),
-            ],
-            onChanged: (s) => setState(() => _arac = s),
-          ),
+          if (grup.length > 1) ...[
+            const Text('Arıza nerede?', style: TextStyle(fontWeight: FontWeight.w700)),
+            const SizedBox(height: 6),
+            for (final a in grup)
+              RadioListTile<String>(
+                contentPadding: EdgeInsets.zero,
+                value: a.no,
+                groupValue: _arac,
+                onChanged: (s) => setState(() => _arac = s),
+                secondary: Icon(a.ekipman ? Icons.construction_outlined : Icons.agriculture_outlined),
+                title: Text(a.ekipman ? 'Makine-ekipmanda: ${a.baslik}' : 'Araçta: ${a.baslik}'),
+              ),
+            const SizedBox(height: 8),
+          ] else
+            DropdownButtonFormField<String>(
+              initialValue: araclar.any((a) => a.no == _arac) ? _arac : null,
+              isExpanded: true,
+              decoration: const InputDecoration(labelText: 'Arızalı araç ya da makine-ekipman'),
+              items: [
+                for (final a in araclar)
+                  DropdownMenuItem(
+                      value: a.no,
+                      child: Text('${a.ekipman ? 'Makine-ekipman' : 'Araç'}: ${a.baslik} – ${a.ciftlik}',
+                          overflow: TextOverflow.ellipsis)),
+              ],
+              onChanged: (s) => setState(() => _arac = s),
+            ),
           const SizedBox(height: 12),
           Wrap(
             spacing: 6,

@@ -45,7 +45,9 @@ class IslerimSayfasi extends StatelessWidget {
             side: const BorderSide(color: Renk.kirmizi),
           ),
           onPressed: () => Navigator.push(
-              context, MaterialPageRoute(builder: (_) => ArizaBildirEkrani(onSecili: acik?.arac))),
+              context,
+              MaterialPageRoute(
+                  builder: (_) => ArizaBildirEkrani(onSecili: acik?.arac, birlikte: acik?.ekipman ?? const []))),
           icon: const Icon(Icons.report_problem_outlined),
           label: const Text('Arıza Bildirimi', style: TextStyle(fontSize: 16)),
         ),
@@ -98,6 +100,7 @@ class _DevamEdenIs extends StatelessWidget {
           const SizedBox(height: 8),
           BilgiSatiri('Başlangıç', is_.baslangic),
           BilgiSatiri('Başlangıç sayacı', sayiYaz(is_.sayac1)),
+          if (is_.ekipman.isNotEmpty) BilgiSatiri('Makine-ekipman', is_.ekipman.join(', ')),
           if (is_.is_.isNotEmpty) BilgiSatiri('İş', is_.is_),
           const SizedBox(height: 12),
           FilledButton.icon(
@@ -128,7 +131,7 @@ class _KayitSatiri extends StatelessWidget {
     ].join(' · ');
     return ListTile(
       contentPadding: EdgeInsets.zero,
-      title: Text(arac?.baslik ?? x.arac),
+      title: Text([arac?.baslik ?? x.arac, ...x.ekipman].join(' + ')),
       subtitle: Text(alt),
       trailing: Rozet.durum(x.durum),
     );

@@ -105,7 +105,7 @@ class _OnaySayfasiState extends State<OnaySayfasi> {
                     for (final x in devam)
                       ListTile(
                         contentPadding: EdgeInsets.zero,
-                        title: Text('${x.arac} · ${x.personel}'),
+                        title: Text('${[x.arac, ...x.ekipman].join(' + ')} · ${x.personel}'),
                         subtitle: Text('Başlangıç ${x.baslangic} · Sayaç ${sayiYaz(x.sayac1)}'),
                         trailing: TextButton(onPressed: () => _duzelt(x), child: const Text('Kapat')),
                       ),
@@ -165,7 +165,7 @@ class _KayitKarti extends StatelessWidget {
         value: secili,
         onChanged: (b) => onSec(b ?? false),
         controlAffinity: ListTileControlAffinity.leading,
-        title: Text('${x.arac} · ${x.personel}', style: const TextStyle(fontWeight: FontWeight.w600)),
+        title: Text('${[x.arac, ...x.ekipman].join(' + ')} · ${x.personel}', style: const TextStyle(fontWeight: FontWeight.w600)),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
