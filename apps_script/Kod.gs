@@ -20,7 +20,7 @@ var BASLIKLAR = {
   'Kullanım': ['Kayıt No', 'Tarih', 'Araç No', 'Personel', 'Telefon', 'Çiftlik', 'Başlangıç',
     'Bitiş', 'Başlangıç Sayacı', 'Bitiş Sayacı', 'Çalışma (saat)', 'İş', 'Gresleme',
     'Hava Filtresi', 'Motor Yağı', 'Radyatör', 'Not', 'Durum', 'Onaylayan', 'Onay Zamanı',
-    'Kayıt Şekli', 'Sorumlu Formen', 'Makine-Ekipman'],
+    'Kayıt Şekli', 'Sorumlu Formen', 'Makine-Ekipman', 'Fotoğraf'],
   'Bakım_Plan': ['Araç No', 'Bakım Türü', 'Periyot (saat)', 'Son Yapılan (saat)', 'Son Yapılan Tarih'],
   'Bakım_Kayıt': ['Kayıt No', 'Tarih', 'Araç No', 'Kayıt Türü', 'Bakım Türü', 'Motor Saati',
     'Yapılan İş', 'Değişen Parça', 'Firma / Atölye', 'Tutar (TL)', 'Belge No', 'Giren',
@@ -479,7 +479,8 @@ function kullanimNesne_(r, i) {
     baslangic: r[6], bitis: r[7], sayac1: sayi_(r[8]), sayac2: sayi_(r[9]), saat: sayi_(r[10]), is: r[11],
     gresleme: r[12], hava: r[13], yag: r[14], radyator: r[15], not: r[16], durum: r[17],
     onaylayan: r[18], onayZamani: r[19], sekil: r[20], formen: r[21] || '',
-    ekipman: bas_(r[22]) ? bas_(r[22]).split(/\s*,\s*/) : [] };
+    ekipman: bas_(r[22]) ? bas_(r[22]).split(/\s*,\s*/) : [],
+    fotolar: bas_(r[23]) ? bas_(r[23]).split(/\s+/) : [] };
 }
 
 function bakimUyarilari_(araclar) {
@@ -732,6 +733,14 @@ function onayla_(k, g) {
 }
 
 /** Formen düzeltmesi: personel, araç, sayaçlar, bakım kontrolü; ya da personel yerine yeni kayıt. */
+/** Base64 JPEG fotoğrafları Drive'daki Araç Takip klasörüne kaydeder; bağlantıları döndürür. */
+function fotolariKaydet_(liste, onEk) {
+  return (Array.isArray(liste) ? liste : []).slice(0, 3).map(function (b64, i) {
+    var blob = Utilities.newBlob(Utilities.base64Decode(b64), 'image/jpeg', onEk + '_' + (i + 1) + '.jpg');
+    return DriveApp.getFolderById(FOTO_KLASOR_ID).createFile(blob).getUrl();
+  });
+}
+
 function kayitDuzelt_(k, g) {
   if (!yetki_(k, 'formen')) return { ok: false, hata: 'Bu işlem için formen yetkisi gerekir.' };
   var d = g.kayit || {};
@@ -753,7 +762,8 @@ function kayitDuzelt_(k, g) {
     ekle_('Kullanım', [no, bas_(d.tarih) || bugun_(), a.row[0], kisi.ad, kisi.telefon, a.row[4],
       bas_(d.baslangic), bas_(d.bitis), s1 == null ? '' : s1, s2 == null ? '' : s2, saat, bas_(d.is),
       evet(d.gresleme), evet(d.hava), evet(d.yag), evet(d.radyator), bas_(d.not), 'Onaylandı', k.ad, simdi_(),
-      'Formen girişi', formenOf_(kisi.telefon) || k.telefon]);
+      'Formen girişi', formenOf_(kisi.telefon) || k.telefon, '',
+      fotolariKaydet_(d.fotolar, no + '_' + a.row[0]).join(' ')]);
     return { ok: true, no: no };
   }
   var tb = tablo_('Kullanım');
@@ -771,6 +781,10 @@ function kayitDuzelt_(k, g) {
   if (d.bitis) hucre_('Kullanım', satir, 'Bitiş', bas_(d.bitis));
   var eskiNot = tb.rows[satir - 2][16];
   hucre_('Kullanım', satir, 'Not', [eskiNot, 'Formen düzeltmesi (' + k.ad + ', ' + simdi_() + ')' + (d.not ? ': ' + d.not : '')].filter(String).join(' | '));
+  var yeniFoto = fotolariKaydet_(d.fotolar, d.no + '_duzeltme');
+  if (yeniFoto.length) {
+    hucre_('Kullanım', satir, 'Fotoğraf', [tb.rows[satir - 2][23], yeniFoto.join(' ')].filter(String).join(' '));
+  }
   hucre_('Kullanım', satir, 'Durum', 'Onaylandı');
   hucre_('Kullanım', satir, 'Onaylayan', k.ad);
   hucre_('Kullanım', satir, 'Onay Zamanı', simdi_());

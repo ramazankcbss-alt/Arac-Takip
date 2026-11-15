@@ -1,4 +1,8 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../servis/api.dart';
 import '../tema.dart';
@@ -200,6 +204,7 @@ class _KayitDuzeltEkraniState extends State<KayitDuzeltEkrani> {
   late final _s1 = TextEditingController(text: widget.kayit?.sayac1 == null ? '' : sayiYaz(widget.kayit!.sayac1));
   late final _s2 = TextEditingController(text: widget.kayit?.sayac2 == null ? '' : sayiYaz(widget.kayit!.sayac2));
   final _not = TextEditingController();
+  final _fotolar = <Uint8List>[];
   late final _k = <String, bool>{
     'gresleme': widget.kayit?.kontrol('gresleme') ?? false,
     'hava': widget.kayit?.kontrol('hava') ?? false,
@@ -214,6 +219,26 @@ class _KayitDuzeltEkraniState extends State<KayitDuzeltEkrani> {
     _s2.dispose();
     _not.dispose();
     super.dispose();
+  }
+
+  Future<void> _fotoCek() async {
+    if (_fotolar.length >= 3) {
+      bildir(context, 'En fazla 3 fotoğraf eklenebilir.');
+      return;
+    }
+    try {
+      final x = await ImagePicker().pickImage(
+        source: ImageSource.camera,
+        maxWidth: 1280,
+        maxHeight: 1280,
+        imageQuality: 60,
+      );
+      if (x == null) return;
+      final b = await x.readAsBytes();
+      if (mounted) setState(() => _fotolar.add(b));
+    } catch (_) {
+      if (mounted) bildir(context, 'Kamera açılamadı.');
+    }
   }
 
   Future<void> _kaydet() async {
@@ -237,6 +262,7 @@ class _KayitDuzeltEkraniState extends State<KayitDuzeltEkrani> {
         if (widget.kayit?.durum == 'Devam ediyor') 'bitis': 'Formen kapattı',
         ..._k,
         'not': _not.text.trim(),
+        if (_fotolar.isNotEmpty) 'fotolar': _fotolar.map(base64Encode).toList(),
       },
     }, basari: yeni ? 'Kayıt eklendi ve onaylandı.' : 'Kayıt düzeltildi ve onaylandı.');
     if (j != null && mounted) Navigator.pop(context);
@@ -306,6 +332,41 @@ class _KayitDuzeltEkraniState extends State<KayitDuzeltEkrani> {
             controller: _not,
             maxLines: 2,
             decoration: const InputDecoration(labelText: 'Düzeltme açıklaması'),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (var i = 0; i < _fotolar.length; i++)
+                Stack(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.memory(_fotolar[i], width: 90, height: 90, fit: BoxFit.cover),
+                    ),
+                    Positioned(
+                      right: 0,
+                      top: 0,
+                      child: InkWell(
+                        onTap: () => setState(() => _fotolar.removeAt(i)),
+                        child: Container(
+                          decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
+                          padding: const EdgeInsets.all(2),
+                          child: const Icon(Icons.close, size: 18, color: Colors.white),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              if (_fotolar.length < 3)
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(minimumSize: const Size(90, 90)),
+                  onPressed: _fotoCek,
+                  icon: const Icon(Icons.photo_camera_outlined),
+                  label: Text(_fotolar.isEmpty ? 'Fotoğraf ekle\n(isteğe bağlı)' : 'Ekle', textAlign: TextAlign.center),
+                ),
+            ],
           ),
           const SizedBox(height: 20),
           FilledButton.icon(
