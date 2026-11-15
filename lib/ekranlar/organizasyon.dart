@@ -51,220 +51,162 @@ Color _renk(String kademe) {
   }
 }
 
+String _bas(String ad) {
+  final p = ad.trim().split(RegExp(r'\s+')).where((e) => e.isNotEmpty).toList();
+  if (p.isEmpty) return '?';
+  return (p.first[0] + (p.length > 1 ? p.last[0] : '')).toUpperCase();
+}
+
 class _OrganizasyonEkraniState extends State<OrganizasyonEkrani> {
   String _ara = '';
   String? _grup;
-
-  List<String> _gruplar(List<OrgKisi> l) {
-    final g = l.map((x) => x.grup).toSet().toList()
-      ..sort((a, b) {
-        if (a == _merkez) return -1;
-        if (b == _merkez) return 1;
-        return a.compareTo(b);
-      });
-    return g;
-  }
+  final Set<String> _acik = {};
+  bool _hazir = false;
 
   int _sira(Veri v, OrgKisi a, OrgKisi b) {
     final k = v.kademeler.indexOf(a.kademe).compareTo(v.kademeler.indexOf(b.kademe));
     return k != 0 ? k : a.ad.compareTo(b.ad);
   }
 
-  Future<void> _duzenle(Veri v, OrgKisi x) async {
-    final kaydedildi = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      builder: (_) => _DuzenleFormu(v: v, x: x),
-    );
-    if (kaydedildi == true && mounted) setState(() {});
-  }
+  List<String> _gruplar(List<OrgKisi> l) => l.map((x) => x.grup).toSet().toList()
+    ..sort((a, b) {
+      if (a == _merkez) return -1;
+      if (b == _merkez) return 1;
+      return a.compareTo(b);
+    });
 
-  Widget _kisi(Veri v, OrgKisi x, int derinlik, {required bool yonetici, String? disAmir, bool grup = false}) {
-    final altBilgi = [
-      if (x.gorev.isNotEmpty) x.gorev,
-      if (grup) x.grup,
-      if (disAmir != null) 'Bağlı olduğu: $disAmir',
-      'Görüş: ${x.kapsamMetni}',
-    ].join(' · ');
-    return Padding(
-      padding: EdgeInsets.only(left: derinlik * 18.0),
-      child: ListTile(
-        dense: true,
-        contentPadding: const EdgeInsets.only(left: 4, right: 0),
-        leading: Icon(_ikon(x.kademe), color: _renk(x.kademe)),
-        title: Row(
-          children: [
-            Flexible(child: Text(x.ad, style: const TextStyle(fontWeight: FontWeight.w600))),
-            const SizedBox(width: 6),
-            Rozet(x.kademe, renk: _renk(x.kademe), zemin: Renk.zemin),
-          ],
-        ),
-        subtitle: Text(altBilgi),
-        trailing: yonetici
-            ? IconButton(
-                tooltip: 'Düzelt',
-                icon: Icon(x.duzeltildi ? Icons.edit_note : Icons.edit_outlined,
-                    color: x.duzeltildi ? Renk.ana : Renk.soluk),
-                onPressed: () => _duzenle(v, x),
-              )
-            : null,
-      ),
-    );
-  }
-
-  /// Kişi ve (varsa) ona bağlı olanlar; formen ekipleri kapalı başlar.
-  List<Widget> _agac(Veri v, OrgKisi x, Map<String, List<OrgKisi>> altlar, int derinlik, bool yonetici,
-      Set<String> gorulen, {bool grup = false, int seviye = 0}) {
-    if (!gorulen.add(x.telefon)) return const [];
-    final cocuk = altlar[x.telefon] ?? const <OrgKisi>[];
-    if (cocuk.isEmpty) return [_kisi(v, x, derinlik, yonetici: yonetici, grup: grup)];
-    return [
-      Padding(
-        padding: EdgeInsets.only(left: derinlik * 18.0),
-        child: Theme(
-          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-          child: ExpansionTile(
-            tilePadding: const EdgeInsets.only(left: 4),
-            childrenPadding: EdgeInsets.zero,
-            initiallyExpanded: x.kademe != 'Formen' && seviye < 4,
-            leading: Icon(_ikon(x.kademe), color: _renk(x.kademe)),
-            title: Text(x.ad, style: const TextStyle(fontWeight: FontWeight.w600)),
-            subtitle: Text(
-                [x.kademe, x.gorev, if (grup) x.grup, '${cocuk.length} kişi bağlı', 'Görüş: ${x.kapsamMetni}']
-                    .where((e) => e.isNotEmpty)
-                    .join(' · '),
-                style: const TextStyle(fontSize: 12)),
-            trailing: yonetici
-                ? Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        tooltip: 'Düzelt',
-                        icon: Icon(x.duzeltildi ? Icons.edit_note : Icons.edit_outlined,
-                            color: x.duzeltildi ? Renk.ana : Renk.soluk),
-                        onPressed: () => _duzenle(v, x),
-                      ),
-                      const Icon(Icons.expand_more),
-                    ],
-                  )
-                : null,
-            children: [
-              for (final c in cocuk) ..._agac(v, c, altlar, 1, yonetici, gorulen, grup: grup, seviye: seviye + 1),
-            ],
-          ),
-        ),
-      ),
-    ];
-  }
-
-  /// Tümü görünümü: üst yönetimden aşağı doğru tek hiyerarşi; amiri belirlenmemiş personel çiftlik bazında ayrı.
-  List<Widget> _hiyerarsi(Veri v, bool yonetici) {
-    final tumu = {for (final x in v.organizasyon) x.telefon: x};
-    final altlar = <String, List<OrgKisi>>{};
-    final kok = <OrgKisi>[];
-    for (final x in v.organizasyon) {
-      if (x.ust.isNotEmpty && tumu.containsKey(x.ust)) {
-        (altlar[x.ust] ??= []).add(x);
-      } else {
-        kok.add(x);
-      }
+  /// Kişi → bağlı olanlar; [kapsam] verilirse yalnız o kişiler arasında kurulur.
+  Map<String, List<OrgKisi>> _altlar(Veri v, Iterable<OrgKisi> l) {
+    final tel = {for (final x in l) x.telefon};
+    final m = <String, List<OrgKisi>>{};
+    for (final x in l) {
+      if (x.ust.isNotEmpty && tel.contains(x.ust)) (m[x.ust] ??= []).add(x);
     }
-    for (final a in altlar.values) {
+    for (final a in m.values) {
       a.sort((p, q) => _sira(v, p, q));
     }
-    kok.sort((p, q) => _sira(v, p, q));
-    // Zincirin başı: altında personel olan ya da merkez yönetimde olan kişiler.
-    final zincir = kok.where((x) => (altlar[x.telefon] ?? const []).isNotEmpty || x.kademe == _merkez).toList();
-    final bagimsiz = kok.where((x) => !zincir.contains(x)).toList();
-    final gorulen = <String>{};
-    final gruplar = <String, List<OrgKisi>>{};
-    for (final x in bagimsiz) {
-      (gruplar[x.grup] ??= []).add(x);
+    return m;
+  }
+
+  void _ilkAcilis(Veri v) {
+    if (_hazir || v.organizasyon.isEmpty) return;
+    _hazir = true;
+    final altlar = _altlar(v, v.organizasyon);
+    // Üst kademeler açık, formen ekipleri kapalı başlar.
+    for (final x in v.organizasyon) {
+      if ((altlar[x.telefon] ?? const []).isNotEmpty && x.kademe != 'Formen') _acik.add(x.telefon);
     }
-    final grupAdlari = gruplar.keys.toList()..sort();
-    return [
-      Panel(
-        baslik: 'Kurumsal hiyerarşi (${v.organizasyon.length - bagimsiz.length} kişi)',
-        padding: const EdgeInsets.fromLTRB(12, 14, 4, 8),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            for (final x in zincir) ..._agac(v, x, altlar, 0, yonetici, gorulen, grup: true),
-          ],
-        ),
-      ),
-      if (bagimsiz.isNotEmpty)
-        Panel(
-          baslik: 'Bağlı olduğu amir belirlenmemiş (${bagimsiz.length} kişi)',
-          padding: const EdgeInsets.fromLTRB(12, 14, 4, 8),
+  }
+
+  Future<void> _detay(Veri v, OrgKisi x, int bagli) async {
+    final amir = v.organizasyon.where((p) => p.telefon == x.ust).firstOrNull;
+    final duzenle = await showModalBottomSheet<bool>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (yonetici)
-                const Padding(
-                  padding: EdgeInsets.only(bottom: 6),
-                  child: Text('Kalem simgesiyle kişiyi bağlı olduğu amire bağlayın; hiyerarşide yerini alır.',
-                      style: TextStyle(color: Renk.soluk, fontSize: 12)),
+              Row(
+                children: [
+                  _Avatar(x),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(x.ad, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                        Text(x.gorev, style: const TextStyle(color: Renk.soluk)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              BilgiSatiri('Kademe', x.kademe),
+              BilgiSatiri('Çiftlik', x.grup),
+              BilgiSatiri('Bağlı olduğu amir', amir == null ? 'Belirlenmemiş' : '${amir.ad} (${amir.gorev})'),
+              BilgiSatiri('Bağlı personel', bagli == 0 ? 'Yok' : '$bagli kişi'),
+              BilgiSatiri('Görüş kapsamı', x.kapsamMetni),
+              if (x.guncelleme.isNotEmpty) BilgiSatiri('Son düzeltme', '${x.guncelleyen}, ${x.guncelleme}'),
+              if (v.kisi.yonetici) ...[
+                const SizedBox(height: 16),
+                FilledButton.icon(
+                  style: FilledButton.styleFrom(minimumSize: const Size(64, 48)),
+                  onPressed: () => Navigator.pop(ctx, true),
+                  icon: const Icon(Icons.edit_outlined),
+                  label: const Text('Düzenle'),
                 ),
-              for (final g in grupAdlari) ...[
-                Padding(
-                  padding: const EdgeInsets.only(top: 8, left: 4),
-                  child: Text('$g (${gruplar[g]!.length})',
-                      style: const TextStyle(fontWeight: FontWeight.w700, color: Renk.anaKoyu)),
-                ),
-                for (final x in gruplar[g]!) _kisi(v, x, 0, yonetici: yonetici),
               ],
             ],
           ),
         ),
-    ];
-  }
-
-  Widget _grupPaneli(Veri v, String grup, List<OrgKisi> l, bool yonetici) {
-    final telefonlar = {for (final x in l) x.telefon};
-    final altlar = <String, List<OrgKisi>>{};
-    final kok = <OrgKisi>[];
-    final tumu = {for (final x in v.organizasyon) x.telefon: x};
-    for (final x in l) {
-      if (x.ust.isNotEmpty && telefonlar.contains(x.ust)) {
-        (altlar[x.ust] ??= []).add(x);
-      } else {
-        kok.add(x);
-      }
-    }
-    for (final a in altlar.values) {
-      a.sort((p, q) => _sira(v, p, q));
-    }
-    kok.sort((p, q) => _sira(v, p, q));
-    final sayim = <String, int>{};
-    for (final x in l) {
-      sayim[x.kademe] = (sayim[x.kademe] ?? 0) + 1;
-    }
-    final gorulen = <String>{};
-    return Panel(
-      baslik: '$grup (${l.length} kişi)',
-      padding: const EdgeInsets.fromLTRB(12, 14, 4, 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              for (final k in v.kademeler)
-                if ((sayim[k] ?? 0) > 0) Rozet('$k: ${sayim[k]}', renk: _renk(k), zemin: Renk.zemin),
-            ],
-          ),
-          const SizedBox(height: 6),
-          for (final x in kok)
-            if (x.ust.isNotEmpty && !telefonlar.contains(x.ust) && (altlar[x.telefon] ?? const []).isEmpty)
-              _kisi(v, x, 0, yonetici: yonetici, disAmir: '${tumu[x.ust]?.ad ?? x.ustAd} (${tumu[x.ust]?.grup ?? ''})')
-            else
-              ..._agac(v, x, altlar, 0, yonetici, gorulen),
-        ],
       ),
     );
+    if (duzenle == true && mounted) {
+      await showModalBottomSheet<bool>(
+        context: context,
+        isScrollControlled: true,
+        builder: (_) => _DuzenleFormu(v: v, x: x),
+      );
+      if (mounted) setState(() {});
+    }
   }
+
+  /// Ağacı düz satır listesine çevirir (girinti çizgileriyle).
+  void _satirlar(Veri v, OrgKisi x, Map<String, List<OrgKisi>> altlar, int seviye, List<Widget> out,
+      Set<String> gorulen, {bool ciftlikGoster = false}) {
+    if (!gorulen.add(x.telefon)) return;
+    final cocuk = altlar[x.telefon] ?? const <OrgKisi>[];
+    final acik = _acik.contains(x.telefon);
+    out.add(_Satir(
+      x: x,
+      seviye: seviye,
+      bagli: cocuk.length,
+      acik: acik,
+      ciftlik: ciftlikGoster,
+      onAc: cocuk.isEmpty ? null : () => setState(() => acik ? _acik.remove(x.telefon) : _acik.add(x.telefon)),
+      onDetay: () => _detay(v, x, cocuk.length),
+    ));
+    if (acik) {
+      for (final c in cocuk) {
+        _satirlar(v, c, altlar, seviye + 1, out, gorulen, ciftlikGoster: ciftlikGoster && c.grup != x.grup);
+      }
+    }
+  }
+
+  List<Widget> _agacListesi(Veri v, List<OrgKisi> l, {required bool ciftlikGoster}) {
+    final altlar = _altlar(v, l);
+    final tel = {for (final x in l) x.telefon};
+    final kok = l.where((x) => x.ust.isEmpty || !tel.contains(x.ust)).toList()..sort((a, b) => _sira(v, a, b));
+    final out = <Widget>[];
+    final gorulen = <String>{};
+    for (final x in kok) {
+      _satirlar(v, x, altlar, 0, out, gorulen, ciftlikGoster: ciftlikGoster);
+    }
+    return out;
+  }
+
+  Widget _bolum(String baslik, List<Widget> satirlar, {String? not}) => Panel(
+        padding: const EdgeInsets.fromLTRB(8, 14, 8, 6),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(left: 8, bottom: 6),
+              child: Text(baslik, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+            ),
+            if (not != null)
+              Padding(
+                padding: const EdgeInsets.only(left: 8, bottom: 6),
+                child: Text(not, style: const TextStyle(color: Renk.soluk, fontSize: 12)),
+              ),
+            ...satirlar,
+          ],
+        ),
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -272,39 +214,64 @@ class _OrganizasyonEkraniState extends State<OrganizasyonEkrani> {
       listenable: Depo.ben,
       builder: (context, _) {
         final v = Depo.ben.veri!;
-        final yonetici = v.kisi.yonetici;
+        _ilkAcilis(v);
         final gruplar = _gruplar(v.organizasyon);
         final q = _ara.toLowerCase();
-        final aramada = q.isNotEmpty;
-        final liste = v.organizasyon
-            .where((x) => _grup == null || x.grup == _grup)
-            .where((x) => !aramada ||
-                '${x.ad} ${x.gorev} ${x.grup} ${x.kademe} ${x.ustAd}'.toLowerCase().contains(q))
-            .toList();
+        final govde = <Widget>[];
+        if (v.organizasyon.isEmpty) {
+          govde.add(const Bos('Organizasyon bilgisi yok. Sunucu kodunun güncel sürümü dağıtıldıktan sonra listelenir.'));
+        } else if (q.isNotEmpty) {
+          final l = v.organizasyon
+              .where((x) => '${x.ad} ${x.gorev} ${x.grup} ${x.kademe}'.toLowerCase().contains(q))
+              .toList()
+            ..sort((a, b) => _sira(v, a, b));
+          govde.add(_bolum('Arama sonucu (${l.length})', [
+            for (final x in l)
+              _Satir(x: x, seviye: 0, bagli: 0, acik: false, ciftlik: true, onDetay: () => _detay(v, x, 0)),
+          ]));
+        } else if (_grup == null) {
+          // Hiyerarşi: bağlantısı olan herkes tek ağaçta; amiri belirlenmemiş olanlar ayrı bölümde.
+          final altlar = _altlar(v, v.organizasyon);
+          final bagliMi = (OrgKisi x) =>
+              x.ust.isNotEmpty || (altlar[x.telefon] ?? const []).isNotEmpty || x.kademe == _merkez;
+          final zincir = v.organizasyon.where(bagliMi).toList();
+          final bos = v.organizasyon.where((x) => !bagliMi(x)).toList()..sort((a, b) => _sira(v, a, b));
+          govde.add(_bolum('Kurumsal hiyerarşi', _agacListesi(v, zincir, ciftlikGoster: true)));
+          if (bos.isNotEmpty) {
+            final satir = <Widget>[];
+            for (final g in _gruplar(bos)) {
+              satir.add(Padding(
+                padding: const EdgeInsets.fromLTRB(8, 10, 8, 2),
+                child: Text(g, style: const TextStyle(fontWeight: FontWeight.w700, color: Renk.anaKoyu)),
+              ));
+              for (final x in bos.where((x) => x.grup == g)) {
+                satir.add(_Satir(x: x, seviye: 0, bagli: 0, acik: false, onDetay: () => _detay(v, x, 0)));
+              }
+            }
+            govde.add(_bolum('Amiri belirlenmemiş (${bos.length})', satir,
+                not: v.kisi.yonetici ? 'Kişiye dokunup Düzenle ile bağlı olduğu amiri seçin.' : null));
+          }
+        } else {
+          final l = v.organizasyon.where((x) => x.grup == _grup).toList();
+          govde.add(_bolum('$_grup (${l.length} kişi)', _agacListesi(v, l, ciftlikGoster: false)));
+        }
+
         return Scaffold(
           appBar: AppBar(title: const UygulamaBasligi(baslik: 'Organizasyon Şeması')),
           body: YenilenirListe(
             children: [
-              Text(
-                yonetici
-                    ? 'Personel üst yönetimden aşağı doğru bağlı olduğu amire göre listelenir; çiftlik seçerek o çiftliğin '
-                        'kadrosunu görebilirsiniz. Kalem simgesiyle kademe, bağlı olduğu amir, çiftlik ve görüş kapsamı düzeltilir.'
-                    : 'Personel üst yönetimden aşağı doğru bağlı olduğu amire göre listelenir; çiftlik seçerek o çiftliğin '
-                        'kadrosunu görebilirsiniz.',
-                style: const TextStyle(color: Renk.soluk, fontSize: 12),
-              ),
-              const SizedBox(height: 8),
               TextField(
-                decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: 'Ad, görev, kademe ya da çiftlik'),
+                decoration: const InputDecoration(prefixIcon: Icon(Icons.search), hintText: 'Personel ara'),
                 onChanged: (s) => setState(() => _ara = s.trim()),
               ),
-              const SizedBox(height: 8),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
+              const SizedBox(height: 10),
+              SizedBox(
+                height: 40,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
                   children: [
                     ChoiceChip(
-                      label: Text('Hiyerarşi (${v.organizasyon.length})'),
+                      label: const Text('Hiyerarşi'),
                       selected: _grup == null,
                       onSelected: (_) => setState(() => _grup = null),
                     ),
@@ -312,7 +279,7 @@ class _OrganizasyonEkraniState extends State<OrganizasyonEkrani> {
                       Padding(
                         padding: const EdgeInsets.only(left: 6),
                         child: ChoiceChip(
-                          label: Text('$g (${v.organizasyon.where((x) => x.grup == g).length})'),
+                          label: Text(g),
                           selected: _grup == g,
                           onSelected: (s) => setState(() => _grup = s ? g : null),
                         ),
@@ -320,29 +287,109 @@ class _OrganizasyonEkraniState extends State<OrganizasyonEkrani> {
                   ],
                 ),
               ),
-              const SizedBox(height: 10),
-              if (v.organizasyon.isEmpty)
-                const Bos('Organizasyon bilgisi yok. Sunucu kodunun güncel sürümü dağıtıldıktan sonra listelenir.')
-              else if (aramada)
-                Panel(
-                  baslik: 'Arama sonucu (${liste.length})',
-                  padding: const EdgeInsets.fromLTRB(12, 14, 4, 8),
-                  child: Column(
-                    children: [
-                      for (final x in (liste..sort((a, b) => _sira(v, a, b))))
-                        _kisi(v, x, 0,
-                            yonetici: yonetici, disAmir: x.ustAd.isEmpty ? null : '${x.ustAd} · ${x.grup}'),
-                    ],
-                  ),
-                )
-              else if (_grup == null)
-                ..._hiyerarsi(v, yonetici)
-              else
-                _grupPaneli(v, _grup!, v.organizasyon.where((x) => x.grup == _grup).toList(), yonetici),
+              const SizedBox(height: 12),
+              ...govde,
             ],
           ),
         );
       },
+    );
+  }
+}
+
+class _Avatar extends StatelessWidget {
+  const _Avatar(this.x, {this.kucuk = false});
+  final OrgKisi x;
+  final bool kucuk;
+
+  @override
+  Widget build(BuildContext context) {
+    final r = _renk(x.kademe);
+    final d = kucuk ? 34.0 : 44.0;
+    return Container(
+      width: d,
+      height: d,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(color: r.withValues(alpha: 0.12), shape: BoxShape.circle),
+      child: Text(_bas(x.ad),
+          style: TextStyle(color: r, fontWeight: FontWeight.w700, fontSize: kucuk ? 13 : 16)),
+    );
+  }
+}
+
+/// Tek satır: girinti çizgileri, aç/kapa, baş harf, ad ve unvan, bağlı kişi sayısı.
+class _Satir extends StatelessWidget {
+  const _Satir({
+    required this.x,
+    required this.seviye,
+    required this.bagli,
+    required this.acik,
+    required this.onDetay,
+    this.onAc,
+    this.ciftlik = false,
+  });
+  final OrgKisi x;
+  final int seviye, bagli;
+  final bool acik, ciftlik;
+  final VoidCallback onDetay;
+  final VoidCallback? onAc;
+
+  @override
+  Widget build(BuildContext context) {
+    final alt = ciftlik ? '${x.gorev} · ${x.grup}' : x.gorev;
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: onDetay,
+      child: SizedBox(
+        height: 56,
+        child: Row(
+          children: [
+            for (var i = 0; i < seviye; i++)
+              Container(
+                width: 16,
+                alignment: Alignment.center,
+                child: Container(width: 1.5, height: 56, color: Renk.cizgi),
+              ),
+            SizedBox(
+              width: 32,
+              child: onAc == null
+                  ? null
+                  : IconButton(
+                      padding: EdgeInsets.zero,
+                      visualDensity: VisualDensity.compact,
+                      iconSize: 22,
+                      onPressed: onAc,
+                      icon: Icon(acik ? Icons.expand_more : Icons.chevron_right, color: Renk.soluk),
+                    ),
+            ),
+            _Avatar(x, kucuk: true),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(x.ad,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                  Text(alt,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(color: Renk.soluk, fontSize: 12.5)),
+                ],
+              ),
+            ),
+            if (bagli > 0)
+              Container(
+                margin: const EdgeInsets.only(left: 6, right: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(color: Renk.anaAcik, borderRadius: BorderRadius.circular(10)),
+                child: Text('$bagli', style: const TextStyle(color: Renk.anaKoyu, fontWeight: FontWeight.w700, fontSize: 12)),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }
