@@ -187,6 +187,36 @@ class CihazTalebi {
   bool get kilitli => _s(j['durum']) == 'Kilitli';
 }
 
+/// Formenin personele verdiği iş emri.
+class IsEmri {
+  IsEmri(this.j);
+  final Map<String, dynamic> j;
+  String get no => _s(j['no']);
+  String get tarih => _s(j['tarih']);
+  String get telefon => _s(j['telefon']);
+  String get personel => _s(j['personel']);
+  String get formenAd => _s(j['formenAd']);
+  String get ciftlik => _s(j['ciftlik']);
+  String get yerTuru => _s(j['yerTuru']);
+  String get yer => _s(j['yer']);
+  String get is_ => _s(j['is']);
+  String get arac => _s(j['arac']);
+  List<String> get ekipman =>
+      (j['ekipman'] is List) ? (j['ekipman'] as List).map(_s).where((x) => x.isNotEmpty).toList() : const [];
+  String get aciklama => _s(j['aciklama']);
+  String get durum => _s(j['durum']);
+  bool get acik => durum == 'Verildi' || durum == 'Başladı';
+  String get aracMetni => [arac, ...ekipman].where((x) => x.isNotEmpty).join(' + ');
+}
+
+class YerOnerisi {
+  YerOnerisi(this.j);
+  final Map<String, dynamic> j;
+  String get yerTuru => _s(j['yerTuru']);
+  String get yer => _s(j['yer']);
+  String get ciftlik => _s(j['ciftlik']);
+}
+
 /// Ekip görünümündeki personel (formen–personel bağı).
 class EkipUyesi {
   EkipUyesi(this.j);
@@ -224,6 +254,9 @@ class Veri {
         bakimUyari = _liste(j['bakimUyari']).map(BakimUyari.new).toList(),
         plan = _liste(j['plan']).map(Plan.new).toList(),
         bakimKayit = _liste(j['bakimKayit']).map(BakimKaydi.new).toList(),
+        isEmirlerim = _liste(j['isEmirlerim']).map(IsEmri.new).toList(),
+        verdigimEmirler = _liste(j['verdigimEmirler']).map(IsEmri.new).toList(),
+        yerler = _liste(j['yerler']).map(YerOnerisi.new).toList(),
         ekibim = _liste(j['ekibim']).map(EkipUyesi.new).toList(),
         atanabilir = _liste(j['atanabilir']).map(EkipUyesi.new).toList(),
         formenler = _liste(j['formenler']).map(Formen.new).toList(),
@@ -242,6 +275,8 @@ class Veri {
   final List<BakimKaydi> bakimKayit;
   final List<String> ciftlikler;
   final List<EkipUyesi> ekibim, atanabilir;
+  final List<IsEmri> isEmirlerim, verdigimEmirler;
+  final List<YerOnerisi> yerler;
   final List<Formen> formenler;
 
   int get okunmamis => bildirimler.where((b) => !b.okundu).length;
@@ -305,22 +340,61 @@ const ekipmanTurleri = [
   'Pancar Söküm Makinesi (çekilir)',
   'Yem Karma Vagonu (çekilir)',
   'Gübre Tankeri / Fıçısı',
-  'Kar / Sıyırma Bıçağı',
+  'Gübre Sıyırma Bıçağı / Kürek',
+  'Dışkı Sıyırıcı (sabit sistem)',
+  'Balya Kıskacı / Taşıma Aparatı',
+  'Silaj Blok Kesici / Kesme Kovası',
+  'Altlık Serme Makinesi',
+  'Yükleyici Kovası',
+  'Hayvan Taşıma Römorku',
   'Diğer',
 ];
 
-const isTurleri = [
+/// İş emrinde çalışma yeri türleri.
+const yerTurleri = ['Tarla', 'Ahır', 'Silaj / Yem Deposu', 'Atölye', 'Diğer'];
+
+const tarlaIsleri = [
   'Toprak işleme',
   'Ekim',
   'Gübreleme',
   'İlaçlama',
   'Sulama',
+  'Çapalama',
   'Hasat / Söküm',
-  'Nakliye',
-  'Yemleme',
-  'Gübre / Hayvancılık işleri',
-  'Diğer',
+  'Biçme',
+  'Balya yapma',
+  'Silaj hasadı',
 ];
+
+const ahirIsleri = [
+  'Yem karma ve yemleme',
+  'Balya taşıma',
+  'Kaba yem taşıma',
+  'Silaj açma ve taşıma',
+  'Dışkı temizleme / gübre sıyırma',
+  'Gübre çıkarma (tanker / römork)',
+  'Altlık serme',
+  'Yalak ve bölme temizliği',
+  'Hayvan sevki / nakli',
+  'Ahır bakım ve onarım',
+];
+
+const digerIsler = ['Nakliye', 'Atölye / bakım', 'Diğer'];
+
+/// Yer türüne göre önerilen işler.
+List<String> islerFor(String? yerTuru) {
+  switch (yerTuru) {
+    case 'Tarla':
+      return [...tarlaIsleri, ...digerIsler];
+    case 'Ahır':
+    case 'Silaj / Yem Deposu':
+      return [...ahirIsleri, ...digerIsler];
+    default:
+      return [...tarlaIsleri, ...ahirIsleri, ...digerIsler];
+  }
+}
+
+const isTurleri = [...tarlaIsleri, ...ahirIsleri, ...digerIsler];
 
 const bakimKayitTurleri = ['Periyodik bakım', 'Onarım', 'Parça değişimi', 'Lastik', 'Muayene', 'Diğer'];
 const arizaDurumlari = ['Bildirildi', 'Atölyede', 'Parça bekleniyor', 'Onarıldı', 'Geçersiz bildirim'];

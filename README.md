@@ -76,3 +76,14 @@ kurulu uygulamalar güncellemeyi kendileri alır.
 - Kullanım kaydı açıldığı anda personelin formeni **Sorumlu Formen** sütununa yazılır;
   personel sonradan aktarılsa da o günün kaydını önceki formen onaylar.
 - Personel_Listesi'nden çıkarılan kişinin (işten ayrılan) oturumu en geç 10 dakika içinde kapanır.
+
+## İş emirleri
+
+- Formen **Ekibim → İş Emri Ver** ile bir ya da birden çok personele bugün/yarın için iş emri verir:
+  çalışma yeri (Tarla, Ahır, Silaj / Yem Deposu, Atölye, Diğer) ve yer adı, yapılacak iş, araç, makine-ekipman, talimat.
+- Ahır işleri: yem karma ve yemleme, balya taşıma, kaba yem ve silaj taşıma, dışkı temizleme / gübre sıyırma,
+  gübre çıkarma, altlık serme, yalak ve bölme temizliği, hayvan sevki, ahır bakım ve onarım.
+- Personele bildirim gider; **İşlerim** ekranının üstünde iş emri görünür. **İşe Başla** ile araç, ekipman ve iş
+  hazır seçili gelir. Araç gerektirmeyen işte personel **Tamamlandı** bildirir; formene bildirim gider.
+- Araçlı işte kullanım kaydı bitince iş emri kendiliğinden tamamlanır. Personel farklı araç seçerse kayda not düşülür.
+- Kayıtlar **İş_Emirleri** sayfasında tutulur.

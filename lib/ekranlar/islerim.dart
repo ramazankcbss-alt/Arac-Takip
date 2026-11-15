@@ -7,6 +7,7 @@ import 'ariza_bildir.dart';
 import 'bilesen.dart';
 import 'is_baslat.dart';
 import 'is_bitir.dart';
+import 'is_emri.dart';
 
 /// Operatörün ana sayfası: devam eden iş, iş başlatma, arıza bildirimi, geçmiş.
 class IslerimSayfasi extends StatelessWidget {
@@ -18,6 +19,11 @@ class IslerimSayfasi extends StatelessWidget {
     final acik = v.acikIs;
     return YenilenirListe(
       children: [
+        if (v.isEmirlerim.isNotEmpty)
+          Panel(
+            baslik: 'İş emirlerim',
+            child: Column(children: [for (final e in v.isEmirlerim) IsEmriKarti(e: e)]),
+          ),
         if (acik != null)
           _DevamEdenIs(is_: acik, arac: v.arac(acik.arac))
         else

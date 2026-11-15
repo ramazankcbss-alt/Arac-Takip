@@ -4,6 +4,7 @@ import '../servis/api.dart';
 import '../tema.dart';
 import '../veri/model.dart';
 import 'bilesen.dart';
+import 'is_emri.dart';
 
 /// Formenin ekibi: personel formene bağlanır; çiftlikler arası geçişte formen
 /// personeli başka formene görevlendirir. Ekibe bağlı olmayan personel ekibe alınır.
@@ -93,6 +94,22 @@ class _EkipSayfasiState extends State<EkipSayfasi> {
     final diger = v.atanabilir.where(_uyar).toList();
     return YenilenirListe(
       children: [
+        FilledButton.icon(
+          style: FilledButton.styleFrom(minimumSize: const Size(64, 56)),
+          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const IsEmriFormu())),
+          icon: const Icon(Icons.assignment_ind_outlined),
+          label: const Text('İş Emri Ver', style: TextStyle(fontSize: 17)),
+        ),
+        const SizedBox(height: 12),
+        if (v.verdigimEmirler.isNotEmpty)
+          Panel(
+            baslik: 'Verilen iş emirleri (son 3 gün)',
+            child: Column(
+              children: [
+                for (final e in v.verdigimEmirler.take(30)) IsEmriKarti(e: e, formenGorunumu: true),
+              ],
+            ),
+          ),
         TextField(
           decoration: const InputDecoration(
             prefixIcon: Icon(Icons.search),
@@ -117,10 +134,15 @@ class _EkipSayfasiState extends State<EkipSayfasi> {
                           subtitle: Text([x.gorev, x.ciftlik].where((s) => s.isNotEmpty).join(' · ')),
                           trailing: PopupMenuButton<String>(
                             onSelected: (s) {
+                              if (s == 'emir') {
+                                Navigator.push(context,
+                                    MaterialPageRoute(builder: (_) => IsEmriFormu(personel: x.telefon)));
+                              }
                               if (s == 'gorev') _gorevlendir(context, x, v.formenler);
                               if (s == 'cikar') _cikar(context, x);
                             },
                             itemBuilder: (_) => const [
+                              PopupMenuItem(value: 'emir', child: Text('İş emri ver')),
                               PopupMenuItem(value: 'gorev', child: Text('Başka formene görevlendir')),
                               PopupMenuItem(value: 'cikar', child: Text('Ekipten çıkar')),
                             ],

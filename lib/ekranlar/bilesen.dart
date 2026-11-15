@@ -55,6 +55,8 @@ class Rozet extends StatelessWidget {
         return Rozet(d, renk: Renk.yesil, zemin: Renk.yesilAcik);
       case 'Devam ediyor':
       case 'Atölyede':
+      case 'Verildi':
+      case 'Başladı':
         return Rozet(d, renk: Renk.mavi, zemin: Renk.maviAcik);
       case 'Tamamlandı':
       case 'Parça bekleniyor':

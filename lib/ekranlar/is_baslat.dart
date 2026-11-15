@@ -79,9 +79,22 @@ class _IsBaslatEkraniState extends State<IsBaslatEkrani> {
   }
 }
 
+/// İş başlatma formunu açar (iş emrinden gelindiğinde ekipman ve iş hazır seçili).
+Future<void> isBaslatFormuAc(BuildContext context, Arac arac,
+    {List<String> ekipman = const [], String? isTuru, String? emirNo}) {
+  return showModalBottomSheet<bool>(
+    context: context,
+    isScrollControlled: true,
+    builder: (_) => _BaslatFormu(arac: arac, ekipman: ekipman, isTuru: isTuru, emirNo: emirNo),
+  );
+}
+
 class _BaslatFormu extends StatefulWidget {
-  const _BaslatFormu({required this.arac});
+  const _BaslatFormu({required this.arac, this.ekipman = const [], this.isTuru, this.emirNo});
   final Arac arac;
+  final List<String> ekipman;
+  final String? isTuru;
+  final String? emirNo;
 
   @override
   State<_BaslatFormu> createState() => _BaslatFormuState();
@@ -89,8 +102,8 @@ class _BaslatFormu extends StatefulWidget {
 
 class _BaslatFormuState extends State<_BaslatFormu> {
   late final _sayac = TextEditingController(text: widget.arac.sayac == null ? '' : sayiYaz(widget.arac.sayac));
-  String? _is;
-  final _ekipman = <String>{};
+  late String? _is = widget.isTuru;
+  late final _ekipman = <String>{...widget.ekipman};
   bool _tumEkipman = false;
 
   @override
@@ -111,6 +124,7 @@ class _BaslatFormuState extends State<_BaslatFormu> {
         'sayac': s,
         'is': _is ?? '',
         'ekipman': _ekipman.toList(),
+        if (widget.emirNo != null) 'emirNo': widget.emirNo,
         'arizaliOnay': arizaliOnay,
       });
       await Depo.ben.yenile();
@@ -195,7 +209,7 @@ class _BaslatFormuState extends State<_BaslatFormu> {
             spacing: 6,
             runSpacing: 6,
             children: [
-              for (final t in isTurleri)
+              for (final t in {...isTurleri, if (_is != null) _is!})
                 ChoiceChip(
                   label: Text(t),
                   selected: _is == t,
