@@ -351,7 +351,8 @@ function roller_(telefon, p) {
   }
   if (o && o.ciftlik) ciftlik = o.ciftlik;
   var kapsam = o && o.kapsam.length ? o.kapsam.slice() : [ciftlik];
-  if (kapsam.indexOf('Tümü') >= 0) kapsam = ['Tümü'];
+  // Direktörlük / müdürlük kapsamı, bağlı tüm çiftlikleri kapsar.
+  if (kapsam.indexOf('Tümü') >= 0 || kapsam.some(merkezBirim_)) kapsam = ['Tümü'];
   return { roller: Object.keys(set), ciftlik: ciftlik, kapsam: kapsam };
 }
 
@@ -1178,7 +1179,7 @@ function merkezBirim_(birim) {
 /** Şemada gösterilecek çiftlik (grup). Güvenlik birimi bağlı olduğu çiftliğe alınır. */
 function orgGrubu_(t, p, r) {
   var o = orgSatirlari_()[t];
-  if (o && o.ciftlik) return o.ciftlik;
+  if (o && o.ciftlik) return merkezBirim_(o.ciftlik) ? KADEME_MERKEZ : o.ciftlik;
   if (merkezBirim_(p.birim)) return KADEME_MERKEZ;
   var e = ekipler_()[t];
   var c = e && e.ciftlik && e.ciftlik !== 'Tümü' ? e.ciftlik : p.birim;

@@ -295,9 +295,10 @@ class _DuzenleFormuState extends State<_DuzenleFormu> {
   late String _ciftlik = widget.x.ciftlik;
   late Set<String> _kapsam = widget.x.kapsamOzel ? widget.x.kapsam.toSet() : <String>{};
 
-  List<String> get _ciftlikler => widget.v.ciftlikler
-      .where((c) => !c.toUpperCase().contains('DİREKTÖRLÜĞÜ') && !c.toUpperCase().contains('MÜDÜRLÜĞÜ'))
-      .toList();
+  // Direktörlük ve müdürlükler çiftlik değildir; "Tüm çiftlikler" seçeneği onları karşılar.
+  // (Dart'ta 'i' büyük harfe 'I' olur; bu yüzden i/İ içermeyen parçayla aranır.)
+  static final _merkezBirim = RegExp('rektörlü|üdürlü', caseSensitive: false);
+  List<String> get _ciftlikler => widget.v.ciftlikler.where((c) => !_merkezBirim.hasMatch(c)).toList();
 
   OrgKisi? _kisi(String t) {
     for (final x in widget.v.organizasyon) {
