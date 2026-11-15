@@ -262,7 +262,10 @@ function aracPersoneli_(gorev) {
   var g = buyuk_(gorev);
   var haric = ['GÜVENLİK', 'VETERİNER', 'RAPORLAMA', 'KALİTE', 'ZOOTEKNİST', 'MÜHENDİS', 'MÜDÜR', 'UZMAN', 'YÖN.'];
   for (var i = 0; i < haric.length; i++) if (g.indexOf(haric[i]) >= 0) return false;
-  var dahil = ['PERSONEL', 'OPERATÖR', 'FORMEN', 'ŞEF', 'BAKIM', 'ONARIM', 'USTA', 'TAMİR', 'ATÖLYE', 'ŞOFÖR', 'SÜRÜCÜ'];
+  // Saha kadrosu: araç-makine kullananlar ve tarım-hayvancılıkta beden işçiliği yapanlar
+  // (formenin ekibine bağlanır, iş emri alır).
+  var dahil = ['PERSONEL', 'OPERATÖR', 'FORMEN', 'ŞEF', 'BAKIM', 'ONARIM', 'USTA', 'TAMİR', 'ATÖLYE', 'ŞOFÖR', 'SÜRÜCÜ',
+    'İŞÇİ', 'ISCI', 'BAKICI', 'SAĞIM', 'SAĞMA', 'ÇOBAN', 'MEVSİMLİK', 'AMELE', 'HAYVAN BAKIM', 'YARDIMCI ELEMAN', 'BAHÇIVAN'];
   for (var j = 0; j < dahil.length; j++) if (g.indexOf(dahil[j]) >= 0) return true;
   return false;
 }
@@ -1376,7 +1379,7 @@ function isEmriVer_(k, g) {
       hedefler.push({ t: t, ad: p.ad, formen: t, formenAd: p.ad, ciftlik: f.ciftlik, hedef: 'Formen' });
     } else {
       if (f) return { ok: false, hata: p.ad + ' formen; formenlere iş emrini beyaz yaka verir.' };
-      if (p.arac === false) return { ok: false, hata: p.ad + ' araç-makine ve saha kadrosunda değil.' };
+      if (p.arac === false) return { ok: false, hata: p.ad + ' saha kadrosunda değil (beyaz yaka). Gerekirse Roller sayfasından Personel rolü verilir.' };
       if (!sorumlu_(k, t, roller_(t, p).ciftlik)) return { ok: false, hata: p.ad + ' sizin ekibinizde değil.' };
       hedefler.push({ t: t, ad: p.ad, formen: k.telefon, formenAd: k.ad, ciftlik: roller_(t, p).ciftlik, hedef: 'Personel' });
     }
