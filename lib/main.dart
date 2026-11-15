@@ -25,7 +25,7 @@ class AracTakipApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Araç Takip',
+      title: 'İş ve Araç Takip',
       debugShowCheckedModeBanner: false,
       theme: temaOlustur(),
       locale: const Locale('tr', 'TR'),

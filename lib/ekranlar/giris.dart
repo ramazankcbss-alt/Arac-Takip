@@ -57,7 +57,7 @@ class _GirisEkraniState extends State<GirisEkrani> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Araç Takip')),
+      appBar: AppBar(title: const Text('İş ve Araç Takip')),
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
@@ -135,7 +135,7 @@ class _OnayBekleniyorEkraniState extends State<OnayBekleniyorEkrani> {
     final d = Depo.ben;
     final reddedildi = d.cihazDurum == 'Reddedildi';
     return Scaffold(
-      appBar: AppBar(title: const Text('Araç Takip')),
+      appBar: AppBar(title: const Text('İş ve Araç Takip')),
       body: ListView(
         padding: const EdgeInsets.all(24),
         children: [

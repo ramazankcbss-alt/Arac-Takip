@@ -27,7 +27,7 @@ String talepMetni(Talep t) {
     'Talep eden: ${t.talepEden} · ${t.tarih}',
     'Durum: ${t.durum}',
     for (var i = 0; i < t.fotolar.length; i++) 'Fotoğraf ${i + 1}: ${t.fotolar[i]}',
-    'Bilgilerinize sunarım. (Araç Takip kaydı)',
+    'Bilgilerinize sunarım. (İş ve Araç Takip kaydı)',
   ].join('\n');
 }
 

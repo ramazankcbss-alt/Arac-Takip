@@ -79,7 +79,7 @@ var ROL_CIFTLIK = 'Çiftlik Sorumlusu';
 // Giriş noktaları
 
 function doGet(e) {
-  return json_({ ok: true, ad: 'Araç Takip sunucusu', zaman: simdi_() });
+  return json_({ ok: true, ad: 'İş ve Araç Takip sunucusu', zaman: simdi_() });
 }
 
 function doPost(e) {
@@ -1101,7 +1101,7 @@ function ciftlikSorumlusuAta_(k, g) {
     var ciftlik = bas_(g.ciftlik) || 'Tümü';
     ekle_('Roller', [hedef, p.ad, ROL_CIFTLIK, ciftlik, (p.gorev ? p.gorev + ' – ' : '') + 'Atayan: ' + k.ad + ', ' + simdi_()]);
     bildir_([hedef], 'Görevlendirme', 'Çiftlik Sorumlusu görevlendirmesi',
-      'Araç Takip uygulamasında ' + (ciftlik === 'Tümü' ? 'tüm çiftlikler' : ciftlik) +
+      'İş ve Araç Takip uygulamasında ' + (ciftlik === 'Tümü' ? 'tüm çiftlikler' : ciftlik) +
       ' için Çiftlik Sorumlusu olarak yetkilendirildiniz. Atayan: ' + k.ad);
   }
   ROLLER_ = null;
@@ -1219,7 +1219,7 @@ function fcmKur() {
 function testBildirimi() {
   if (!fcmAyar_()) throw new Error('Anlık bildirim kurulu değil; önce fcmKur çalıştırılmalı.');
   var alicilar = rolTelefonlari_([ROL_YONETICI], '');
-  var sonuc = anlikGonder_(alicilar, 'Deneme bildirimi', 'Araç Takip anlık bildirimi çalışıyor. ' + simdi_());
+  var sonuc = anlikGonder_(alicilar, 'Deneme bildirimi', 'İş ve Araç Takip anlık bildirimi çalışıyor. ' + simdi_());
   alicilar.forEach(function (t) {
     Logger.log(t + ': ' + (sonuc[t] ? 'gönderildi' : 'gönderilemedi (uygulama açılıp bildirim izni verilmeli)'));
   });

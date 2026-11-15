@@ -19,7 +19,7 @@ class ArkaPlan {
 
   static const _kanal = AndroidNotificationChannel(
     'arac_takip',
-    'Araç Takip bildirimleri',
+    'İş ve Araç Takip bildirimleri',
     description: 'İş emri, arıza ve onay bildirimleri',
     importance: Importance.high,
   );
@@ -65,7 +65,7 @@ class ArkaPlan {
     // Uygulama açıkken gelen bildirim: göster ve verileri yenile.
     FirebaseMessaging.onMessage.listen((m) {
       final n = m.notification;
-      if (n != null) _goster(n.title ?? 'Araç Takip', n.body ?? '');
+      if (n != null) _goster(n.title ?? 'İş ve Araç Takip', n.body ?? '');
       Depo.ben.yenile();
     });
   }
@@ -113,7 +113,7 @@ class ArkaPlan {
     if (son == null || yeni is! List || yeni.isEmpty) return;
     await _hazirla();
     for (final b in yeni.whereType<Map>()) {
-      await _goster((b['baslik'] ?? 'Araç Takip').toString(), (b['metin'] ?? '').toString());
+      await _goster((b['baslik'] ?? 'İş ve Araç Takip').toString(), (b['metin'] ?? '').toString());
     }
   }
 }

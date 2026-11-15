@@ -93,7 +93,7 @@ class _AnaEkranState extends State<AnaEkran> with WidgetsBindingObserver {
         final s = sekmeler[_sekme];
         return Scaffold(
           appBar: AppBar(
-            title: Text(s.ad == 'İşlerim' ? 'Araç Takip' : s.ad),
+            title: Text(s.ad == 'İşlerim' ? 'İş ve Araç Takip' : s.ad),
             actions: [
               IconButton(
                 tooltip: 'Bildirimler',

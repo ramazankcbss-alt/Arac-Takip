@@ -1,6 +1,6 @@
 """`flutter create` ile oluşan Android dosyalarını uygulamaya göre ayarlar.
 
-- Uygulama adı "Araç Takip"
+- Uygulama adı "İş ve Araç Takip"
 - İnternet, bildirim ve uygulama içi güncelleme izinleri
 - minSdk 24, Java 17
 - Sabit imza: ARAC_KEYSTORE_PASSWORD tanımlıysa ci/arac-takip.p12 ile
@@ -29,7 +29,7 @@ def yaz(p, s):
 
 # --- AndroidManifest.xml ---------------------------------------------------
 m = oku(MANIFEST)
-m = re.sub(r'android:label="[^"]*"', 'android:label="Araç Takip"', m, count=1)
+m = re.sub(r'android:label="[^"]*"', 'android:label="İş ve Araç Takip"', m, count=1)
 
 izinler = [
     "android.permission.INTERNET",

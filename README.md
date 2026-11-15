@@ -1,4 +1,4 @@
-# Araç Takip
+# İş ve Araç Takip
 
 Panagro çiftliklerinde traktör, kamyon, manitou ve diğer iş makinelerinin
 uzun süreli kullanımını, günlük bakım kontrolünü, periyodik bakımı ve arıza

@@ -84,7 +84,7 @@ jobs:
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           tag_name: surum-${{ env.SURUM }}
-          name: Araç Takip - Sürüm ${{ env.SURUM }}
+          name: İş ve Araç Takip - Sürüm ${{ env.SURUM }}
           make_latest: true
           body: |
             ${{ github.event.head_commit.message }}
