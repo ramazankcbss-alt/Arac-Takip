@@ -66,6 +66,10 @@ var ROL_BAKIM = 'Bakım-Onarım';
 // Araç ve makine kullanmayan kadrolar (müdür, uzman, veteriner, raporlama vb.):
 // kendi kapsamlarını izler, arıza bildirir; işlem yapamaz. Cihazlarını Yönetici onaylar.
 var ROL_IZLEYICI = 'İzleyici';
+// Çiftliklerden ve personelden sorumlu beyaz yaka (müdür, müdür yardımcısı, uzman):
+// kapsamındaki çiftliklerde formen yetkilerinin tamamı (ekip görevlendirme, iş emri,
+// günlük onay, cihaz onayı); kendisi formen listesinde yer almaz. Roller sayfasından verilir.
+var ROL_CIFTLIK = 'Çiftlik Sorumlusu';
 
 // ---------------------------------------------------------------------------
 // Giriş noktaları
@@ -284,7 +288,7 @@ function roller_(telefon, p) {
 function yetki_(k, rol) {
   if (k.roller.indexOf(ROL_YONETICI) >= 0) return true;
   if (rol === 'sorumlu') return k.roller.indexOf(ROL_SORUMLU) >= 0 || k.roller.indexOf(ROL_BAKIM) >= 0;
-  if (rol === 'formen') return k.roller.indexOf(ROL_FORMEN) >= 0;
+  if (rol === 'formen') return k.roller.indexOf(ROL_FORMEN) >= 0 || k.roller.indexOf(ROL_CIFTLIK) >= 0;
   return false;
 }
 function izleyiciMi_(telefon) {
@@ -298,6 +302,13 @@ function cihazYetkili_(k, telefon, ciftlik) {
   if (yetki_(k, 'sorumlu') && !yetki_(k, 'formen')) return ayniCiftlik_(k, ciftlik);
   return sorumlu_(k, telefon, ciftlik);
 }
+function ciftlikSorumlusu_(k) { return k.roller.indexOf(ROL_CIFTLIK) >= 0; }
+/** Yönetici ya da (kapsamındaki çiftlik için) Çiftlik Sorumlusu: tüm ekipleri yönetir. */
+function ustYetki_(k, ciftlik) { return tumCiftlikler_(k) || (ciftlikSorumlusu_(k) && ayniCiftlik_(k, ciftlik)); }
+function formenMi_(telefon) {
+  var t = tel_(telefon);
+  return roller_(t, personeller_()[t]).roller.indexOf(ROL_FORMEN) >= 0;
+}
 function tumCiftlikler_(k) {
   return k.roller.indexOf(ROL_YONETICI) >= 0 || k.ciftlik === 'Tümü';
 }
@@ -310,6 +321,7 @@ function ayniCiftlik_(k, ciftlik) { return tumCiftlikler_(k) || bas_(ciftlik) ==
  */
 function sorumlu_(k, telefon, ciftlik, kayitFormen) {
   if (tumCiftlikler_(k)) return true;
+  if (ciftlikSorumlusu_(k)) return ayniCiftlik_(k, ciftlik);
   var f = tel_(kayitFormen);
   if (f) return f === k.telefon;
   var e = ekipler_()[tel_(telefon)];
@@ -542,7 +554,7 @@ function veri_(k) {
     o.atanabilir = ek.atanabilir;
     o.formenler = ek.formenler;
     o.verdigimEmirler = isEmirleri_().filter(function (e) {
-      return (e.formen === k.telefon || tumCiftlikler_(k)) && gunFarki_(e.tarih) <= 3 && gunFarki_(e.tarih) >= -2;
+      return (e.formen === k.telefon || ustYetki_(k, e.ciftlik)) && gunFarki_(e.tarih) <= 3 && gunFarki_(e.tarih) >= -2;
     }).reverse().slice(0, 150);
   }
   var izleyici = k.roller.indexOf(ROL_IZLEYICI) >= 0;
@@ -815,18 +827,22 @@ function formenListesi_() {
 function ekipVerisi_(k) {
   var pl = personeller_();
   var ek = ekipler_();
-  var tum = tumCiftlikler_(k);
-  var kisi = function (t) {
+  var ust = tumCiftlikler_(k) || ciftlikSorumlusu_(k);
+  var kisi = function (t, ciftlik) {
     var p = pl[t]; var e = ek[t] || {};
-    return { telefon: t, ad: p.ad, gorev: p.gorev, ciftlik: roller_(t, p).ciftlik,
+    return { telefon: t, ad: p.ad, gorev: p.gorev, ciftlik: ciftlik,
       formen: e.formen || '', formenAd: e.formenAd || '', zaman: e.zaman || '' };
   };
   var ekibim = [], atanabilir = [];
   Object.keys(pl).forEach(function (t) {
     if (t === k.telefon || pl[t].arac === false) return;
+    var r = roller_(t, pl[t]);
+    // Formenler ve yönetim rolleri ekip üyesi olarak listelenmez.
+    if (r.roller.indexOf(ROL_FORMEN) >= 0 || r.roller.indexOf(ROL_YONETICI) >= 0 || r.roller.indexOf(ROL_CIFTLIK) >= 0) return;
     var e = ek[t];
-    if (e && e.formen === k.telefon) ekibim.push(kisi(t));
-    else if (tum || !e || !e.formen) atanabilir.push(kisi(t));
+    var f = e && e.formen && e.formen !== t ? e.formen : '';
+    if (f === k.telefon) ekibim.push(kisi(t, r.ciftlik));
+    else if (ust ? ayniCiftlik_(k, r.ciftlik) : !f) atanabilir.push(kisi(t, r.ciftlik));
   });
   var sirala = function (a, b) { return a.ad.localeCompare(b.ad, 'tr'); };
   return { ekibim: ekibim.sort(sirala), atanabilir: atanabilir.sort(sirala), formenler: formenListesi_() };
@@ -837,48 +853,73 @@ function ekipVerisi_(k) {
  * Formen: kendi ekibindeki personeli başka formene görevlendirebilir, hiçbir
  * ekibe bağlı olmayan personeli kendi ekibine alabilir. Yönetici her işlemi yapar.
  */
+/**
+ * Personeli (tek ya da toplu) bir formenin ekibine bağlar ya da ekipten çıkarır (formen boş).
+ * Formen: kendi ekibindeki personeli başka formene görevlendirir, hiçbir ekibe bağlı
+ * olmayan personeli kendi ekibine alır. Yönetici ve Çiftlik Sorumlusu (kapsamında) her işlemi yapar.
+ */
 function ekipAta_(k, g) {
   if (!yetki_(k, 'formen')) return { ok: false, hata: 'Bu işlem için formen yetkisi gerekir.' };
-  var hedef = tel_(g.telefon);
-  var p = personeller_()[hedef];
-  if (!p) return { ok: false, hata: 'Personel listesinde bulunamadı.' };
-  if (p.arac === false) return { ok: false, hata: p.ad + ' araç-makine kadrosunda değil.' };
+  var hedefler = (Array.isArray(g.telefonlar) ? g.telefonlar : [g.telefon]).map(tel_).filter(Boolean);
+  if (!hedefler.length) return { ok: false, hata: 'Personel seçin.' };
   var yeni = tel_(g.formen);
-  var formenler = formenListesi_();
   var yf = null;
   if (yeni) {
-    yf = formenler.filter(function (f) { return f.telefon === yeni; })[0];
+    yf = formenListesi_().filter(function (f) { return f.telefon === yeni; })[0];
     if (!yf) return { ok: false, hata: 'Seçilen kişi formen olarak tanımlı değil.' };
   }
+  var hatalar = [], yapilan = [], formenOzet = {};
+  hedefler.forEach(function (hedef) {
+    var r = ekipAtaTek_(k, hedef, yeni, yf);
+    if (!r.ok) { hatalar.push(r.hata); return; }
+    if (r.degismedi) return;
+    yapilan.push(r.ad);
+    [r.eski, yeni].forEach(function (f) {
+      if (f && f !== k.telefon) (formenOzet[f] = formenOzet[f] || []).push(r.ad);
+    });
+    if (yf) bildir_([hedef], 'Görevlendirme', 'Yeni görevlendirme',
+      yf.ad + ' ekibine görevlendirildiniz (' + yf.ciftlik + '). Araç kayıtlarınızı bundan sonra bu formen onaylayacak.');
+  });
+  Object.keys(formenOzet).forEach(function (f) {
+    var l = formenOzet[f];
+    var metin = f === yeni
+      ? 'Ekibinize görevlendirilen personel (' + l.length + '): ' + l.join(', ') + '. İşlemi yapan: ' + k.ad
+      : 'Ekibinizden ' + (yf ? yf.ad + ' ekibine görevlendirilen' : 'çıkarılan') + ' personel (' + l.length + '): ' +
+        l.join(', ') + '. İşlemi yapan: ' + k.ad;
+    bildir_([f], 'Görevlendirme', 'Ekip değişikliği', metin);
+  });
+  if (hatalar.length && !yapilan.length) return { ok: false, hata: hatalar.join('\n') };
+  return { ok: true, sayi: yapilan.length, uyari: hatalar.join('\n') };
+}
+
+function ekipAtaTek_(k, hedef, yeni, yf) {
+  var p = personeller_()[hedef];
+  if (!p) return { ok: false, hata: hedef + ': personel listesinde bulunamadı.' };
+  if (p.arac === false) return { ok: false, hata: p.ad + ' araç-makine kadrosunda değil.' };
+  if (formenMi_(hedef)) return { ok: false, hata: p.ad + ' formen; ekip üyesi olarak görevlendirilemez.' };
   var e = ekipler_()[hedef];
-  var eski = e && e.formen ? e.formen : '';
-  if (!tumCiftlikler_(k) && eski && eski !== k.telefon) {
-    return { ok: false, hata: p.ad + ' başka bir formenin ekibinde (' + e.formenAd + '). Görevlendirmeyi o formen yapabilir.' };
+  var eski = e && e.formen && e.formen !== hedef ? e.formen : '';
+  var mevcutCiftlik = roller_(hedef, p).ciftlik;
+  if (!ustYetki_(k, mevcutCiftlik)) {
+    if (eski && eski !== k.telefon) {
+      return { ok: false, hata: p.ad + ' başka bir formenin ekibinde (' + e.formenAd + '). Görevlendirmeyi o formen yapabilir.' };
+    }
+    if (!eski && yeni !== k.telefon) {
+      return { ok: false, hata: p.ad + ': ekibe bağlı olmayan personeli yalnız kendi ekibinize alabilirsiniz.' };
+    }
   }
-  if (!tumCiftlikler_(k) && !eski && yeni !== k.telefon) {
-    return { ok: false, hata: 'Ekibe bağlı olmayan personeli yalnız kendi ekibinize alabilirsiniz.' };
-  }
-  if (eski === yeni) return { ok: true };
+  if (eski === yeni) return { ok: true, degismedi: true };
   var ciftlik = yf ? yf.ciftlik : p.birim;
   var satir = [hedef, p.ad, yeni, yf ? yf.ad : '', ciftlik, simdi_(), k.ad];
   var t = tablo_('Ekipler');
   var bulundu = -1;
   t.rows.forEach(function (r, i) { if (tel_(r[0]) === hedef) bulundu = i + 2; });
-  if (bulundu > 0) {
-    t.sh.getRange(bulundu, 1, 1, satir.length).setValues([satir.map(String)]);
-  } else {
-    ekle_('Ekipler', satir);
-  }
+  if (bulundu > 0) t.sh.getRange(bulundu, 1, 1, satir.length).setValues([satir.map(String)]);
+  else ekle_('Ekipler', satir);
   EKIP_ = null;
-  var eskiAd = e && e.formenAd ? e.formenAd : '';
-  ekle_('Görevlendirme_Geçmişi', [simdi_(), hedef, p.ad, eskiAd, yf ? yf.ad : 'Ekipten çıkarıldı', ciftlik, k.ad]);
-  var metin = yf
-    ? p.ad + ', ' + yf.ad + ' ekibine görevlendirildi (' + ciftlik + ').'
-    : p.ad + ', ' + (eskiAd || 'formen') + ' ekibinden çıkarıldı.';
-  bildir_([eski, yeni].filter(function (x) { return x && x !== k.telefon; }), 'Görevlendirme', 'Ekip değişikliği', metin);
-  if (yf) bildir_([hedef], 'Görevlendirme', 'Yeni görevlendirme',
-    yf.ad + ' ekibine görevlendirildiniz (' + ciftlik + '). Araç kayıtlarınızı bundan sonra bu formen onaylayacak.');
-  return { ok: true };
+  ekle_('Görevlendirme_Geçmişi', [simdi_(), hedef, p.ad, e && e.formenAd ? e.formenAd : '',
+    yf ? yf.ad : 'Ekipten çıkarıldı', ciftlik, k.ad]);
+  return { ok: true, ad: p.ad, eski: eski };
 }
 
 /**
@@ -1079,7 +1120,7 @@ function isEmriDurum_(k, g) {
   var e = em.e;
   var durum = bas_(g.durum);
   if (['Tamamlandı', 'İptal'].indexOf(durum) < 0) return { ok: false, hata: 'Geçersiz durum.' };
-  var formenMi = yetki_(k, 'formen') && (e.formen === k.telefon || tumCiftlikler_(k));
+  var formenMi = yetki_(k, 'formen') && (e.formen === k.telefon || ustYetki_(k, e.ciftlik));
   if (durum === 'İptal' && !formenMi) return { ok: false, hata: 'İş emrini yalnız veren formen iptal eder.' };
   if (durum === 'Tamamlandı' && !formenMi && e.telefon !== k.telefon) return { ok: false, hata: 'Bu iş emri size ait değil.' };
   hucre_('İş_Emirleri', em.satir, 'Durum', durum);

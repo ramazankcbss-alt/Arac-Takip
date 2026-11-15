@@ -57,7 +57,7 @@ class _IsEmriFormuState extends State<IsEmriFormu> {
   @override
   Widget build(BuildContext context) {
     final v = Depo.ben.veri!;
-    final kisiler = [...v.ekibim, if (v.kisi.yonetici || v.ekibim.isEmpty) ...v.atanabilir];
+    final kisiler = [...v.ekibim, if (v.kisi.ustYonetim || v.ekibim.isEmpty) ...v.atanabilir];
     final araclar = v.secimListesi();
     final ekipmanlar = v.secimListesi(ekipman: true);
     final oneriler = v.yerler.where((y) => y.yerTuru == _yerTuru).take(12).toList();

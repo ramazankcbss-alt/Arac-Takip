@@ -11,6 +11,7 @@ const sinifEkipman = 'Makine-Ekipman';
 
 const rolYonetici = 'Yönetici';
 const rolIzleyici = 'İzleyici';
+const rolCiftlik = 'Çiftlik Sorumlusu';
 const rolFormen = 'Formen';
 const rolSorumlu = 'Makine-Ekipman Sorumlusu';
 const rolBakim = 'Bakım-Onarım';
@@ -27,7 +28,9 @@ class Kisi {
   final List<String> roller;
 
   bool get yonetici => roller.contains(rolYonetici);
-  bool get formen => yonetici || roller.contains(rolFormen);
+  bool get formen => yonetici || roller.contains(rolFormen) || roller.contains(rolCiftlik);
+  /// Tüm ekipleri yöneten: Yönetici ya da (kendi kapsamında) Çiftlik Sorumlusu.
+  bool get ustYonetim => yonetici || roller.contains(rolCiftlik);
   bool get sorumlu => yonetici || roller.contains(rolSorumlu) || roller.contains(rolBakim);
   /// Araç-makine kullanmayan kadro (müdür, uzman, veteriner, raporlama): izler, işlem yapmaz.
   bool get izleyici => roller.contains(rolIzleyici) && !formen && !sorumlu;

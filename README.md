@@ -109,3 +109,12 @@ kurulu uygulamalar güncellemeyi kendileri alır.
   "Araç Takip" klasörüne yüklenir, Apps Script'te **fcmKur** bir kez çalıştırılır (anahtar komut dosyası
   özelliklerine taşınır), ardından Drive'daki dosya silinir.
 - Her bildirim önce anlık gönderilir; gönderilemeyen telefon 15 dakikalık yedek kontrolde alır.
+
+## Çiftlik Sorumlusu (beyaz yaka) ve toplu görevlendirme
+
+- Roller sayfasında `Çiftlik Sorumlusu` rolü verilen kişi (müdür, müdür yardımcısı, uzman), Çiftlik
+  sütununda yazan çiftlikte (ya da `Tümü`) formen yetkilerinin tamamına sahiptir: personeli formenlere
+  görevlendirir, iş emri verir, günlük kayıtları onaylar. Formen listesinde yer almaz.
+- **Ekipler** ekranı: formenlere göre personel dağılımı ve formene bağlı olmayan personel sayısı;
+  dokununca liste süzülür. Personel işaretlenerek toplu **Formene görevlendir / Ekipten çıkar / Ekibime al**.
+  Formenler ekip üyesi listelerinde görünmez.

@@ -54,7 +54,7 @@ class _AnaEkranState extends State<AnaEkran> with WidgetsBindingObserver {
         final v = d.veri;
         final k = v?.kisi ?? d.kisi;
         final sekmeler = <({String ad, IconData ikon, Widget sayfa, int rozet})>[
-          if ((k?.izleyici ?? false) || (k?.yonetici ?? false))
+          if ((k?.izleyici ?? false) || (k?.ustYonetim ?? false))
             (ad: 'Genel Durum', ikon: Icons.dashboard_outlined, sayfa: const IzlemeSayfasi(), rozet: 0)
           else
             (ad: 'İşlerim', ikon: Icons.assignment_outlined, sayfa: const IslerimSayfasi(), rozet: 0),
@@ -68,7 +68,7 @@ class _AnaEkranState extends State<AnaEkran> with WidgetsBindingObserver {
             ),
           if (k?.formen ?? false)
             (
-              ad: (k?.yonetici ?? false) ? 'Ekipler' : 'Ekibim',
+              ad: (k?.ustYonetim ?? false) ? 'Ekipler' : 'Ekibim',
               ikon: Icons.groups_outlined,
               sayfa: const EkipSayfasi(),
               rozet: 0,
