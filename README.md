@@ -62,3 +62,17 @@ kurulu uygulamalar güncellemeyi kendileri alır.
 - **Bakım_Kayıt**: periyodik bakım, onarım, parça değişimi; tarih, sayaç, parça, firma, tutar, belge no.
 - **Arıza**: bildirim, fotoğraf (Drive), durum akışı: Bildirildi → Atölyede → Parça bekleniyor → Onarıldı.
 - **Cihazlar**, **Roller**, **Bildirimler**: oturum, yetki ve uygulama içi bildirimler.
+
+## Ekipler ve çiftlikler arası görevlendirme
+
+- Her personel bir formene bağlanır (**Ekipler** sayfası). Personelin kullanım kayıtlarını,
+  cihaz onayını ve PIN sıfırlamasını yalnız bağlı olduğu formen görür ve onaylar.
+  Formene bağlı olmayan personel, çiftliğinin formenleri tarafından görülür.
+- Formen, uygulamada **Ekibim** sekmesinden ekibine bağlı olmayan personeli ekibine alır;
+  kendi ekibindeki personeli **Başka formene görevlendir** ile diğer çiftliğin formenine aktarır.
+  Personelin çiftliği görevlendirildiği formenin çiftliği olur. Eski ve yeni formen ile personel bilgilendirilir.
+- Yönetici **Ekipler** sekmesinden tüm personeli görür ve dilediği formene görevlendirir.
+- Tüm değişiklikler **Görevlendirme_Geçmişi** sayfasında tutulur.
+- Kullanım kaydı açıldığı anda personelin formeni **Sorumlu Formen** sütununa yazılır;
+  personel sonradan aktarılsa da o günün kaydını önceki formen onaylar.
+- Personel_Listesi'nden çıkarılan kişinin (işten ayrılan) oturumu en geç 10 dakika içinde kapanır.

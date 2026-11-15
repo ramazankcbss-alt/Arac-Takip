@@ -6,6 +6,7 @@ import '../tema.dart';
 import 'araclar.dart';
 import 'arizalar.dart';
 import 'bildirimler.dart';
+import 'ekip.dart';
 import 'islerim.dart';
 import 'onay.dart';
 
@@ -58,6 +59,13 @@ class _AnaEkranState extends State<AnaEkran> with WidgetsBindingObserver {
               sayfa: const OnaySayfasi(),
               rozet: (v?.onayBekleyen.where((x) => x.durum == 'Tamamlandı').length ?? 0) +
                   (v?.cihazBekleyen.length ?? 0),
+            ),
+          if (k?.formen ?? false)
+            (
+              ad: (k?.yonetici ?? false) ? 'Ekipler' : 'Ekibim',
+              ikon: Icons.groups_outlined,
+              sayfa: const EkipSayfasi(),
+              rozet: 0,
             ),
           if ((k?.sorumlu ?? false) || (k?.formen ?? false))
             (

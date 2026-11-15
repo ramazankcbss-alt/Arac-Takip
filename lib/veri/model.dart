@@ -176,6 +176,27 @@ class CihazTalebi {
   bool get kilitli => _s(j['durum']) == 'Kilitli';
 }
 
+/// Ekip görünümündeki personel (formen–personel bağı).
+class EkipUyesi {
+  EkipUyesi(this.j);
+  final Map<String, dynamic> j;
+  String get telefon => _s(j['telefon']);
+  String get ad => _s(j['ad']);
+  String get gorev => _s(j['gorev']);
+  String get ciftlik => _s(j['ciftlik']);
+  String get formen => _s(j['formen']);
+  String get formenAd => _s(j['formenAd']);
+  String get zaman => _s(j['zaman']);
+}
+
+class Formen {
+  Formen(this.j);
+  final Map<String, dynamic> j;
+  String get telefon => _s(j['telefon']);
+  String get ad => _s(j['ad']);
+  String get ciftlik => _s(j['ciftlik']);
+}
+
 /// Ana veri paketi (sunucudaki `veri` işleminin cevabı).
 class Veri {
   Veri(this.j)
@@ -192,6 +213,9 @@ class Veri {
         bakimUyari = _liste(j['bakimUyari']).map(BakimUyari.new).toList(),
         plan = _liste(j['plan']).map(Plan.new).toList(),
         bakimKayit = _liste(j['bakimKayit']).map(BakimKaydi.new).toList(),
+        ekibim = _liste(j['ekibim']).map(EkipUyesi.new).toList(),
+        atanabilir = _liste(j['atanabilir']).map(EkipUyesi.new).toList(),
+        formenler = _liste(j['formenler']).map(Formen.new).toList(),
         ciftlikler = (j['ciftlikler'] is List) ? (j['ciftlikler'] as List).map(_s).toList() : const [];
 
   final Map<String, dynamic> j;
@@ -206,6 +230,8 @@ class Veri {
   final List<Plan> plan;
   final List<BakimKaydi> bakimKayit;
   final List<String> ciftlikler;
+  final List<EkipUyesi> ekibim, atanabilir;
+  final List<Formen> formenler;
 
   int get okunmamis => bildirimler.where((b) => !b.okundu).length;
 
