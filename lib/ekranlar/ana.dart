@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../servis/api.dart';
+import '../servis/arka_plan.dart';
 import '../servis/guncelleme.dart';
 import '../tema.dart';
 import 'araclar.dart';
@@ -27,6 +28,7 @@ class _AnaEkranState extends State<AnaEkran> with WidgetsBindingObserver {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Depo.ben.yenile();
       Guncelleme.kontrolEt(context);
+      ArkaPlan.baslat();
     });
   }
 

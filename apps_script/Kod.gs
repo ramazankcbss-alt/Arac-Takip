@@ -104,6 +104,7 @@ function doPost(e) {
       case 'bildirimOkundu': return json_(bildirimOkundu_(k));
       case 'ekipAta': return json_(ekipAta_(k, g));
       case 'isEmriVer': return json_(isEmriVer_(k, g));
+      case 'bildirimKontrol': return json_(bildirimKontrol_(k, g));
       case 'isEmriDurum': return json_(isEmriDurum_(k, g));
       default: return json_({ ok: false, hata: 'Bilinmeyen işlem: ' + g.tur });
     }
@@ -809,6 +810,24 @@ function ekipAta_(k, g) {
   if (yf) bildir_([hedef], 'Görevlendirme', 'Yeni görevlendirme',
     yf.ad + ' ekibine görevlendirildiniz (' + ciftlik + '). Araç kayıtlarınızı bundan sonra bu formen onaylayacak.');
   return { ok: true };
+}
+
+/**
+ * Telefonun arka planda (yaklaşık 15 dakikada bir) sorduğu yeni bildirimler.
+ * son: telefonun daha önce gördüğü bildirim satırı sayısı. İlk çağrıda (son boş) yalnız
+ * güncel satır döner; eski bildirimler yeniden gösterilmez.
+ */
+function bildirimKontrol_(k, g) {
+  var rows = tablo_('Bildirimler').rows;
+  var enSon = rows.length; // görülen bildirim satırı sayısı
+  var son = parseInt(g.son, 10);
+  if (isNaN(son) || son < 0 || son > enSon) return { ok: true, son: enSon, yeni: [] };
+  var yeni = [];
+  for (var i = son; i < rows.length; i++) {
+    var r = rows[i];
+    if (tel_(r[1]) === k.telefon && r[5] !== 'Evet') yeni.push({ tur: r[2], baslik: r[3], metin: r[4] });
+  }
+  return { ok: true, son: enSon, yeni: yeni.slice(-10) };
 }
 
 // ---------------------------------------------------------------------------
