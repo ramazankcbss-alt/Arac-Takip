@@ -417,37 +417,6 @@ class _AracFormuState extends State<AracFormu> {
           ),
           const SizedBox(height: 12),
           TextField(controller: _not, maxLines: 2, decoration: const InputDecoration(labelText: 'Not')),
-          const SizedBox(height: 16),
-          const Text('Fatura / servis belgesi', style: TextStyle(fontWeight: FontWeight.w700)),
-          const SizedBox(height: 6),
-          FotoSecici(fotolar: _fotolar, degisti: () => setState(() {}), etiket: 'Belge fotoğrafı'),
-          const SizedBox(height: 16),
-          const Text('Sonraki bakım', style: TextStyle(fontWeight: FontWeight.w700)),
-          const Text('Servisin belirttiği bir sonraki bakım; süre dolmadan bakım-onarım ekibine uyarı düşer.',
-              style: TextStyle(color: Renk.soluk, fontSize: 12)),
-          const SizedBox(height: 6),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _sonrakiTarih,
-                  readOnly: true,
-                  onTap: _sonrakiTarihSec,
-                  decoration: InputDecoration(
-                    labelText: 'Tarih',
-                    suffixIcon: _sonrakiTarih.text.isEmpty
-                        ? const Icon(Icons.event)
-                        : IconButton(
-                            icon: const Icon(Icons.clear),
-                            onPressed: () => setState(_sonrakiTarih.clear),
-                          ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(child: SayiAlani(kontrol: _sonrakiSaat, etiket: 'ya da motor saati')),
-            ],
-          ),
           const SizedBox(height: 20),
           FilledButton.icon(onPressed: _kaydet, icon: const Icon(Icons.save), label: const Text('Kaydet')),
         ],
@@ -600,6 +569,37 @@ class _BakimFormuState extends State<BakimFormu> {
               Expanded(
                 child: TextField(controller: _belge, decoration: const InputDecoration(labelText: 'Fatura / SAT no')),
               ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          const Text('Fatura / servis belgesi', style: TextStyle(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 6),
+          FotoSecici(fotolar: _fotolar, degisti: () => setState(() {}), etiket: 'Belge fotoğrafı'),
+          const SizedBox(height: 16),
+          const Text('Sonraki bakım', style: TextStyle(fontWeight: FontWeight.w700)),
+          const Text('Servisin belirttiği bir sonraki bakım; süre dolmadan bakım-onarım ekibine uyarı düşer.',
+              style: TextStyle(color: Renk.soluk, fontSize: 12)),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _sonrakiTarih,
+                  readOnly: true,
+                  onTap: _sonrakiTarihSec,
+                  decoration: InputDecoration(
+                    labelText: 'Tarih',
+                    suffixIcon: _sonrakiTarih.text.isEmpty
+                        ? const Icon(Icons.event)
+                        : IconButton(
+                            icon: const Icon(Icons.clear),
+                            onPressed: () => setState(_sonrakiTarih.clear),
+                          ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(child: SayiAlani(kontrol: _sonrakiSaat, etiket: 'ya da motor saati')),
             ],
           ),
           const SizedBox(height: 20),
