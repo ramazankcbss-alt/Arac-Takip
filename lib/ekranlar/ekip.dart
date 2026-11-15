@@ -5,6 +5,7 @@ import '../tema.dart';
 import '../veri/model.dart';
 import 'bilesen.dart';
 import 'is_emri.dart';
+import 'organizasyon.dart';
 
 /// Ekipler: personel formene bağlanır; çiftlikler arası geçişte personel başka
 /// formene görevlendirilir. Toplu seçim ve formen bazında dağılım.
@@ -133,7 +134,7 @@ class _EkipSayfasiState extends State<EkipSayfasi> {
     }
   }
 
-  /// Yönetici: Çiftlik Sorumlusu (beyaz yaka) atama ve kapsam.
+  /// Yönetici: Çiftlik Sorumlusu atama ve kapsam.
   Future<String?> _ciftlikSec(List<String> ciftlikler, String baslik) => showModalBottomSheet<String>(
         context: context,
         builder: (ctx) => SafeArea(
@@ -207,7 +208,7 @@ class _EkipSayfasiState extends State<EkipSayfasi> {
   }
 
   Widget _sorumluPaneli(Veri v) => Panel(
-        baslik: 'Çiftlik Sorumluları (beyaz yaka)',
+        baslik: 'Çiftlik Sorumluları',
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -366,6 +367,19 @@ class _EkipSayfasiState extends State<EkipSayfasi> {
             label: const Text('İş Emri Ver', style: TextStyle(fontSize: 17)),
           ),
           const SizedBox(height: 12),
+          if (ust)
+            Panel(
+              child: ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.account_tree_outlined, color: Renk.ana, size: 32),
+                title: const Text('Organizasyon Şeması', style: TextStyle(fontWeight: FontWeight.w700)),
+                subtitle: Text(v.kisi.yonetici
+                    ? 'Tüm personel çiftlik ve kademe sırasıyla. Kim kimden sorumlu ve nereye bakacak: düzeltme yetkisi sizde.'
+                    : 'Tüm personel çiftlik ve kademe sırasıyla.'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const OrganizasyonEkrani())),
+              ),
+            ),
           if (v.kisi.yonetici) _sorumluPaneli(v),
           Panel(
             baslik: ust ? 'Formenlere göre personel dağılımı' : 'Ekip durumu',

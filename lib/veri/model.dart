@@ -276,7 +276,7 @@ class IsEmri {
   String get veren => _s(j['veren']);
   String get verenAd => _s(j['verenAd']);
   String get ust => _s(j['ust']);
-  /// 'Formen' (beyaz yakadan formene) ya da 'Personel' (formenden personele)
+  /// 'Formen' (yönetici ve idari personelden formene) ya da 'Personel' (formenden personele)
   String get hedef => _s(j['hedef']).isEmpty ? 'Personel' : _s(j['hedef']);
   bool get formeneVerilen => hedef == 'Formen';
   String get aracMetni => [arac, ...ekipman].where((x) => x.isNotEmpty).join(' + ');
@@ -301,6 +301,33 @@ class EkipUyesi {
   String get formen => _s(j['formen']);
   String get formenAd => _s(j['formenAd']);
   String get zaman => _s(j['zaman']);
+}
+
+/// Organizasyon şemasındaki kişi: kademe, bağlı olduğu amir, çiftlik (grup) ve görüş kapsamı.
+class OrgKisi {
+  OrgKisi(this.j);
+  final Map<String, dynamic> j;
+  String get telefon => _s(j['telefon']);
+  String get ad => _s(j['ad']);
+  String get gorev => _s(j['gorev']);
+  String get birim => _s(j['birim']);
+  String get ciftlik => _s(j['ciftlik']);
+  /// Şemada gösterildiği çiftlik
+  String get grup => _s(j['grup']);
+  String get kademe => _s(j['kademe']);
+  bool get kademeOzel => j['kademeOzel'] == true;
+  String get ust => _s(j['ust']);
+  String get ustAd => _s(j['ustAd']);
+  /// 'ekip' (formen ekibi), 'ozel' (Yönetici düzeltmesi), 'otomatik' ya da boş
+  String get ustKaynak => _s(j['ustKaynak']);
+  List<String> get kapsam => (j['kapsam'] is List) ? (j['kapsam'] as List).map(_s).toList() : const [];
+  bool get kapsamOzel => j['kapsamOzel'] == true;
+  List<String> get roller => (j['roller'] is List) ? (j['roller'] as List).map(_s).toList() : const [];
+  String get guncelleyen => _s(j['guncelleyen']);
+  String get guncelleme => _s(j['guncelleme']);
+  bool get duzeltildi => kademeOzel || kapsamOzel || ustKaynak == 'ozel' || guncelleme.isNotEmpty;
+  bool get tumCiftlikler => kapsam.contains('Tümü');
+  String get kapsamMetni => tumCiftlikler ? 'Tüm çiftlikler' : kapsam.join(', ');
 }
 
 class Formen {
@@ -338,6 +365,8 @@ class Veri {
         ekibim = _liste(j['ekibim']).map(EkipUyesi.new).toList(),
         atanabilir = _liste(j['atanabilir']).map(EkipUyesi.new).toList(),
         formenler = _liste(j['formenler']).map(Formen.new).toList(),
+        organizasyon = _liste(j['organizasyon']).map(OrgKisi.new).toList(),
+        kademeler = (j['kademeler'] is List) ? (j['kademeler'] as List).map(_s).toList() : const [],
         ciftlikler = (j['ciftlikler'] is List) ? (j['ciftlikler'] as List).map(_s).toList() : const [];
 
   final Map<String, dynamic> j;
@@ -359,6 +388,8 @@ class Veri {
   final List<PersonelKaydi> ciftlikSorumlulari, personelTum;
   final List<YerOnerisi> yerler;
   final List<Formen> formenler;
+  final List<OrgKisi> organizasyon;
+  final List<String> kademeler;
 
   int get okunmamis => bildirimler.where((b) => !b.okundu).length;
 

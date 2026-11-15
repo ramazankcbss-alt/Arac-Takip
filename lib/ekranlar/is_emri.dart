@@ -6,7 +6,7 @@ import '../veri/model.dart';
 import 'bilesen.dart';
 import 'is_baslat.dart';
 
-/// İş emri (makam silsilesi): beyaz yaka formene, formen ekibindeki personele verir.
+/// İş emri (kurumsal hiyerarşi): yönetici ve idari personel formene, formen ekibindeki personele verir.
 /// Nerede, hangi iş, hangi araç ve makine-ekipmanla yapılacağı bildirilir.
 class IsEmriFormu extends StatefulWidget {
   const IsEmriFormu({super.key, this.personel});
@@ -64,7 +64,7 @@ class _IsEmriFormuState extends State<IsEmriFormu> {
   Widget build(BuildContext context) {
     final v = Depo.ben.veri!;
     final beyaz = _beyaz;
-    // Beyaz yaka yalnız formenlere, formen yalnız kendi ekibine iş emri verir.
+    // Yönetici ve idari personel yalnız formenlere, formen yalnız kendi ekibine iş emri verir.
     final kisiler = beyaz
         ? [
             for (final f in v.formenler)
