@@ -966,6 +966,16 @@ function fcmKur() {
   Logger.log('Anlık bildirim kuruldu (' + a.project_id + '). Şimdi Drive\'daki "' + bulunan.getName() + '" dosyasını silin.');
 }
 
+/** ELLE ÇALIŞTIRILIR: Yönetici telefonlarına deneme bildirimi gönderir ve sonucu günlüğe yazar. */
+function testBildirimi() {
+  if (!fcmAyar_()) throw new Error('Anlık bildirim kurulu değil; önce fcmKur çalıştırılmalı.');
+  var alicilar = rolTelefonlari_([ROL_YONETICI], '');
+  var sonuc = anlikGonder_(alicilar, 'Deneme bildirimi', 'Araç Takip anlık bildirimi çalışıyor. ' + simdi_());
+  alicilar.forEach(function (t) {
+    Logger.log(t + ': ' + (sonuc[t] ? 'gönderildi' : 'gönderilemedi (uygulama açılıp bildirim izni verilmeli)'));
+  });
+}
+
 function fcmAyar_() {
   var j = PropertiesService.getScriptProperties().getProperty('FCM_ANAHTAR');
   return j ? JSON.parse(j) : null;
