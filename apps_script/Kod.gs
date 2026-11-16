@@ -6,10 +6,10 @@
  *
  * Sayfalar ilk istekte kendiliğinden oluşturulur:
  *   Araçlar, Kullanım, Bakım_Plan, Bakım_Kayıt, Arıza, Cihazlar, Roller, Bildirimler
- * Personel bilgisi Yönetim Raporu tablosundaki "Personel_Listesi" sayfasından okunur.
+ * Personel bilgisi bu tablodaki "Araç_Personeli" sayfasından okunur (KVKK: yalnızca
+ * araç-makine kullanan çalışanlar; ad, görev, birim, telefon — asgari veri).
  */
 
-var RAPOR_TABLO_ID = '1GkKhf3j-VK8tomjeIqLDMKs-mlq7CYJOfQMyokMGh3Y';
 var FOTO_KLASOR_ID = '1lRtoFrA9NyhPF280G9uLnIEIeWU-1tOe'; // Drive "Araç Takip"
 var TZ = 'Europe/Istanbul';
 var PIN_DENEME_SINIRI = 5;
@@ -35,6 +35,8 @@ var BASLIKLAR = {
   'Cihazlar': ['Telefon', 'Ad Soyad', 'Cihaz Kimliği', 'Cihaz Adı', 'Oturum Anahtarı',
     'PIN Özeti', 'Durum', 'Onaylayan', 'Talep Zamanı', 'Onay Zamanı', 'Bildirim Anahtarı'],
   'Roller': ['Telefon', 'Ad Soyad', 'Rol', 'Çiftlik', 'Not'],
+  // KVKK: yalnızca araç-makine kullanan çalışanlar; asgari veri (TC, adres, sağlık, ücret yazılmaz)
+  'Araç_Personeli': ['Ad Soyad', 'Görev', 'Birim', 'Telefon', 'Not'],
   // Personelin bağlı olduğu formen (güncel görevlendirme) ve görevlendirme geçmişi
   // Formenin personele verdiği iş emri: nerede, hangi iş, hangi araç ve makine-ekipmanla
   'İş_Emirleri': ['Emir No', 'Tarih', 'Personel Telefon', 'Personel', 'Formen Telefon', 'Formen', 'Çiftlik',
@@ -229,8 +231,8 @@ function personeller_() {
   var c = CacheService.getScriptCache();
   var j = c.get('personel_tum');
   if (j) return JSON.parse(j);
-  var sh = SpreadsheetApp.openById(RAPOR_TABLO_ID).getSheetByName('Personel_Listesi');
-  var n = sh.getLastRow();
+  var sh = ss_().getSheetByName('Araç_Personeli');
+  var n = sh ? sh.getLastRow() : 0;
   var rows = n < 2 ? [] : sh.getRange(2, 1, n - 1, 5).getDisplayValues();
   // Roller sayfası: herhangi bir rol yazılan kişi dahil edilir, 'Hariç' yazılan çıkarılır.
   var rolde = {}, haric = {};
@@ -313,7 +315,7 @@ function ekipAmirleri_() {
 }
 
 /**
- * Araç ve makine kullanan görevler (Personel_Listesi → Görev). Güvenlik,
+ * Araç ve makine kullanan görevler (Araç_Personeli → Görev). Güvenlik,
  * veteriner, raporlama, kalite, mühendis, uzman ve müdür kadroları dahil edilmez;
  * gerekirse Roller sayfasından tek tek eklenir ya da 'Hariç' ile çıkarılır.
  */

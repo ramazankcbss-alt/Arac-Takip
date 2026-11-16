@@ -15,14 +15,14 @@ aynı tabloyu okur.
 | Makine-Ekipman Sorumlusu / Bakım-Onarım | Araç ekler, geçmiş bakım ve onarımları girer, bakım planını düzenler, arıza durumunu günceller. |
 | Yönetici | Tüm çiftlikleri görür, tüm yetkilere sahiptir. |
 
-Roller, "Personel_Listesi"ndeki görev adından (Formen, Bakım/Atölye) kendiliğinden
+Roller, "Araç_Personeli"ndeki görev adından (Formen, Bakım/Atölye) kendiliğinden
 çıkarılır; ek ya da farklı rol vermek için tablodaki **Roller** sayfasına satır
 eklenir (Telefon | Ad Soyad | Rol | Çiftlik). Bir kişiye birden fazla rol
 virgülle yazılabilir. Yönetici için Çiftlik = `Tümü`.
 
 ## Giriş
 
-- Telefon numarası (Personel_Listesi'nde kayıtlı olmalı) + kendi belirlediği 4 haneli PIN.
+- Telefon numarası (Araç_Personeli'nde kayıtlı olmalı) + kendi belirlediği 4 haneli PIN.
 - İlk girişte cihaz, formen ya da Makine-Ekipman Sorumlusu tarafından onaylanır.
 - Sonraki açılışlarda giriş otomatiktir.
 
@@ -75,7 +75,7 @@ kurulu uygulamalar güncellemeyi kendileri alır.
 - Tüm değişiklikler **Görevlendirme_Geçmişi** sayfasında tutulur.
 - Kullanım kaydı açıldığı anda personelin formeni **Sorumlu Formen** sütununa yazılır;
   personel sonradan aktarılsa da o günün kaydını önceki formen onaylar.
-- Personel_Listesi'nden çıkarılan kişinin (işten ayrılan) oturumu en geç 10 dakika içinde kapanır.
+- Araç_Personeli'nden çıkarılan kişinin (işten ayrılan) oturumu en geç 10 dakika içinde kapanır.
 
 ## İş emirleri
 
@@ -90,7 +90,7 @@ kurulu uygulamalar güncellemeyi kendileri alır.
 
 ## Kadrolar ve izleme erişimi
 
-- **Araç-makine kadrosu** (Personel_Listesi → Görev): çiftlik personeli, işletme operatörü, formen,
+- **Araç-makine kadrosu** (Araç_Personeli → Görev): çiftlik personeli, işletme operatörü, formen,
   bakım-onarım personeli ve ustası. Araç kullanır, iş emri alır, ekiplere bağlanır.
 - **İzleme kadrosu**: müdür, müdür yardımcısı, uzman, veteriner, veteriner sağlık teknikeri, zooteknist,
   kalite kontrol, raporlama, mühendis, güvenlik. Uygulamaya girer; **Genel Durum** (aktif kullanım,
