@@ -239,7 +239,7 @@ function personeller_() {
   rollerSatirlari_().forEach(function (r) {
     var t = tel_(r[0]);
     if (!t || !bas_(r[2])) return;
-    if (buyuk_(r[2]).indexOf('HARİÇ') >= 0) haric[t] = true; else rolde[t] = true;
+    if (buyuk_(r[2]).indexOf('HARİÇ') >= 0) haric[t] = true; else rolde[t] = r;
   });
   var m = {};
   rows.forEach(function (r) {
@@ -250,6 +250,13 @@ function personeller_() {
     if (o && (o.kademe === KADEME_FORMEN || o.kademe === KADEME_SAHA)) arac = true;
     else if (o && o.kademe) arac = false;
     m[t] = { ad: bas_(r[0]), gorev: bas_(r[1]), birim: bas_(r[2]), arac: arac };
+  });
+  // Araç_Personeli'nde olmayan ama Roller sayfasında rolü yazılı kişiler de giriş yapabilir
+  // (liste henüz doldurulmamışken uygulama kilitlenmesin).
+  Object.keys(rolde).forEach(function (t) {
+    if (m[t]) return;
+    var r = rolde[t];
+    m[t] = { ad: bas_(r[1]), gorev: '', birim: bas_(r[3]), arac: true };
   });
   c.put('personel_tum', JSON.stringify(m), 600);
   return m;
